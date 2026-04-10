@@ -1,0 +1,522 @@
+{% extends "base.html" %}
+
+{% block title %}ELFORGE ENERGY MONITORING SYSTEM{% endblock %}
+
+{% block header_title %}ELFORGE ENERGY MONITORING SYSTEM{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/all.min.css') }}" />
+  <style>
+    
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 1200px) {
+      .cards { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+      .card .label { font-size: 0.75rem; }
+      .card .value { font-size: 1.2rem; }
+    }
+    @media (max-width: 700px) {
+      .cards { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+      .card { padding: 8px; }
+    }
+    @media (max-width: 600px) {
+      .cards { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+      .card .label { font-size: 0.7rem; }
+      .card .value { font-size: 1.15rem; }
+      .filter-bar { gap: 10px; }
+      .filter-item { flex: 1 1 100% !important; width: 100% !important; }
+      .action-row { flex-direction: column; align-items: stretch; }
+      .btn-group { flex-direction: column; }
+      .btn { width: 100%; justify-content: center; }
+      .live-toggle { width: 100%; justify-content: center; }
+    }
+    @media (max-width: 480px) {
+      .cards { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+      .card { padding: 10px 10px; }
+      .card .label { font-size: 0.7rem; }
+      .card .value { font-size: 1.1rem; }
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 18px 24px 18px;
+      margin: 4px 0;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      color: #fff;
+      transition: box-shadow 0.2s;
+    }
+    .cards .card:nth-child(1) { background: linear-gradient(135deg, #f472b6 0%, #818cf8 100%); }
+    .cards .card:nth-child(2) { background: linear-gradient(135deg, #34d399 0%, #60a5fa 100%); }
+    .cards .card:nth-child(3) { background: linear-gradient(135deg, #fbbf24 0%, #f472b6 100%); }
+    .cards .card:nth-child(4) { background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%); }
+    .cards .card:nth-child(5) { background: linear-gradient(135deg, #f472b6 0%, #fbbf24 100%); }
+    .cards .card:nth-child(6) { background: linear-gradient(135deg, #818cf8 0%, #34d399 100%); }
+    .cards .card:nth-child(7) { background: linear-gradient(135deg, #fbbf24 0%, #34d399 100%); }
+    .cards .card:nth-child(8) { background: linear-gradient(135deg, #a78bfa 0%, #f472b6 100%); }
+    .cards .card:nth-child(9) { background: linear-gradient(135deg, #60a5fa 0%, #fbbf24 100%); }
+    .cards .card:nth-child(10) { background: linear-gradient(135deg, #34d399 0%, #f472b6 100%); }
+    .cards .card:nth-child(11) { background: linear-gradient(135deg, #818cf8 0%, #fbbf24 100%); }
+    .cards .card:nth-child(12) { background: linear-gradient(135deg, #f472b6 0%, #60a5fa 100%); }
+    .cards .card:nth-child(13) { background: linear-gradient(135deg, #fbbf24 0%, #818cf8 100%); }
+    .cards .card:nth-child(14) { background: linear-gradient(135deg, #a78bfa 0%, #34d399 100%); }
+    .cards .card:nth-child(15) { background: linear-gradient(135deg, #60a5fa 0%, #f472b6 100%); }
+    .card:hover {
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+    .card .label {
+      color: var(--text);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+    }
+    .card .value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+    .controls {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+    }
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .filter-item {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .filter-item label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filter-item select, .filter-item input {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-2);
+      font-weight: 600;
+      color: var(--text);
+      transition: all 0.2s;
+      min-height: 44px;
+    }
+    .filter-item select:focus, .filter-item input:focus {
+      border-color: var(--accent);
+      background: var(--surface-3);
+      box-shadow: 0 0 0 4px rgba(56,189,248,0.1);
+      outline: none;
+    }
+    
+    .action-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .btn-group { display: flex; gap: 12px; }
+    
+    .live-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface-2);
+      padding: 10px 18px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+      color: var(--text);
+    }
+    .live-toggle:hover {
+      background: var(--surface-3);
+      border-color: var(--accent);
+    }
+    .live-toggle input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .status {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+    .muted {
+      color: var(--muted);
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <div class="cards">
+      <div class="card"><div class="label">Total kWh</div><div class="value" id="kwh">0.00</div></div>
+      <div class="card"><div class="label">Power Factor </div><div class="value" id="pf">0.00</div></div>
+      <div class="card"><div class="label">Frequency</div><div class="value" id="freq">0.00</div></div>
+      <div class="card"><div class="label">Voltage RN</div><div class="value" id="vrn">0.00</div></div>
+      <div class="card"><div class="label">Voltage YN</div><div class="value" id="vyn">0.00</div></div>
+      <div class="card"><div class="label">Voltage BN</div><div class="value" id="vbn">0.00</div></div>
+      <div class="card"><div class="label">Voltage RY</div><div class="value" id="vry">0.00</div></div>
+      <div class="card"><div class="label">Voltage YB</div><div class="value" id="vyb">0.00</div></div>
+      <div class="card"><div class="label">Voltage BR</div><div class="value" id="vbr">0.00</div></div>
+      <div class="card"><div class="label">Current R</div><div class="value" id="ir">0.00</div></div>
+      <div class="card"><div class="label">Current Y</div><div class="value" id="iy">0.00</div></div>
+      <div class="card"><div class="label">Current B</div><div class="value" id="ib">0.00</div></div>
+    </div>
+
+    <div class="controls">
+      <!-- Top: Filters -->
+      <div class="filter-bar">
+        <div class="filter-item" style="flex: 1; min-width: 140px;">
+          <label><i class="fa-solid fa-clock-rotate-left"></i> SHIFT</label>
+          <select id="shift">
+            <option value="ALL">All Shifts</option>
+            <option value="A">Shift A</option>
+            <option value="B">Shift B</option>
+            <option value="C">Shift C</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <label><i class="fa-solid fa-calendar-day"></i> START DATE</label>
+          <input type="date" id="start" />
+        </div>
+        <div class="filter-item">
+          <label><i class="fa-solid fa-calendar-day"></i> END DATE</label>
+          <input type="date" id="end" />
+        </div>
+        <div class="filter-item" style="width: 100px;">
+          <label><i class="fa-solid fa-list-ol"></i> LIMIT</label>
+          <input type="number" id="limit" min="1" value="50" />
+        </div>
+      </div>
+
+      <!-- Bottom: Actions -->
+      <div class="action-row">
+        <div class="btn-group">
+          <button class="btn btn-primary" id="btn-load">
+            <i class="fa-solid fa-magnifying-glass"></i> LOAD DATA
+          </button>
+          <button class="btn btn-secondary" id="btn-all">
+            <i class="fa-solid fa-clock"></i> ALL RECORDS
+          </button>
+        </div>
+        
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <label class="live-toggle">
+            <input type="checkbox" id="use-live-table" checked /> 
+            <span><i class="fa-solid fa-tower-broadcast"></i> LIVE STREAM</span>
+          </label>
+          <button class="btn btn-secondary" id="btn-download">
+            <i class="fa-solid fa-download"></i> DOWNLOAD CSV
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status" id="status">Waiting for data.</div>
+
+    <div class="table-label">
+      Table Mode: <span class="badge" id="table-mode">Live Table</span>
+    </div>
+    <div class="table-wrap">
+      <table id="data-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Shift</th>
+            <th>Total Energy (kWh)</th>
+            <th>Power Factor</th>
+            <th>Frequency</th>
+            <th>V-RN</th>
+            <th>V-YN</th>
+            <th>V-BN</th>
+            <th>V-RY</th>
+            <th>V-YB</th>
+            <th>V-BR</th>
+            <th>IR</th>
+            <th>IY</th>
+            <th>IB</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const tableBody = document.querySelector('#data-table tbody');
+    const statusEl = document.getElementById('status');
+
+    function formatNum(val, digits) {
+      const num = Number(val);
+      if (!isFinite(num)) return '-';
+      return num.toFixed(digits);
+    }
+    function normalizeRow(raw) {
+      if (!raw || typeof raw !== 'object') return {};
+      return {
+        TIMESTAMP: raw.TIMESTAMP ?? raw.timestamp ?? null,
+        SHIFT: raw.SHIFT ?? raw.shift ?? null,
+        ENERGY: raw.ENERGY ?? raw.energy ?? null,
+        POWER_FACTOR: raw.POWER_FACTOR ?? raw.power_factor ?? null,
+        FREQUENCY: raw.FREQUENCY ?? raw.frequency ?? null,
+        VR: raw.VR ?? raw.vr ?? null,
+        VY: raw.VY ?? raw.vy ?? null,
+        VB: raw.VB ?? raw.vb ?? null,
+        RY: raw.RY ?? raw.ry ?? null,
+        YB: raw.YB ?? raw.yb ?? null,
+        BR: raw.BR ?? raw.br ?? null,
+        IR: raw.IR ?? raw.ir ?? null,
+        IY: raw.IY ?? raw.iy ?? null,
+        IB: raw.IB ?? raw.ib ?? null
+      };
+    }
+
+    function renderTable(rows) {
+      tableBody.innerHTML = '';
+      
+      rows.forEach(rawRow => {
+        const row = normalizeRow(rawRow);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${row.TIMESTAMP || '-'}</td>
+          <td>${row.SHIFT || '-'}</td>
+          <td>${formatNum(row.ENERGY, 1)}</td>
+          <td>${formatNum(row.POWER_FACTOR, 3)}</td>
+          <td>${formatNum(row.FREQUENCY, 2)}</td>
+          <td>${formatNum(row.VR, 1)}</td>
+          <td>${formatNum(row.VY, 1)}</td>
+          <td>${formatNum(row.VB, 1)}</td>
+          <td>${formatNum(row.RY, 1)}</td>
+          <td>${formatNum(row.YB, 1)}</td>
+          <td>${formatNum(row.BR, 1)}</td>
+          <td>${formatNum(row.IR, 2)}</td>
+          <td>${formatNum(row.IY, 2)}</td>
+          <td>${formatNum(row.IB, 2)}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function getLatestRow(rows) {
+      if (!rows || !rows.length) return null;
+      return rows.reduce((latest, rawRow) => {
+        const row = normalizeRow(rawRow);
+        const currentTs = Date.parse(row.TIMESTAMP || '');
+        if (!isFinite(currentTs)) return latest || row;
+        if (!latest) return row;
+        const latestTs = Date.parse(latest.TIMESTAMP || '');
+        if (!isFinite(latestTs)) return row;
+        return currentTs > latestTs ? row : latest;
+      }, null);
+    }
+
+    function updateCards(latest) {
+      const row = normalizeRow(latest);
+      if (!row.TIMESTAMP && !row.ENERGY && !row.POWER_FACTOR) return;
+      const pf = Number(row.POWER_FACTOR || 0);
+      document.getElementById('kwh').innerText = formatNum(row.ENERGY, 1);
+      document.getElementById('pf').innerText = formatNum(pf, 2);
+      document.getElementById('freq').innerText = formatNum(row.FREQUENCY, 2);
+      document.getElementById('vrn').innerText = formatNum(row.VR, 2);
+      document.getElementById('vyn').innerText = formatNum(row.VY, 2);
+      document.getElementById('vbn').innerText = formatNum(row.VB, 2);
+      document.getElementById('vry').innerText = formatNum(row.RY, 2);
+      document.getElementById('vyb').innerText = formatNum(row.YB, 2);
+      document.getElementById('vbr').innerText = formatNum(row.BR, 2);
+      document.getElementById('ir').innerText = formatNum(row.IR, 2);
+      document.getElementById('iy').innerText = formatNum(row.IY, 2);
+      document.getElementById('ib').innerText = formatNum(row.IB, 2);
+    }
+
+    function setControlsDisabled(disabled) {
+      document.getElementById('shift').disabled = disabled;
+      document.getElementById('start').disabled = disabled;
+      document.getElementById('end').disabled = disabled;
+      document.getElementById('limit').disabled = disabled;
+      document.getElementById('btn-load').disabled = disabled;
+      document.getElementById('btn-all').disabled = disabled;
+    }
+
+    function setTableMode(mode) {
+      const label = document.getElementById('table-mode');
+      label.innerText = mode === 'live' ? 'Live Table' : 'Manual Table';
+      setControlsDisabled(mode === 'live');
+    }
+
+    async function loadData(rangeMode) {
+      const liveToggle = document.getElementById('use-live-table');
+      if (liveToggle.checked) liveToggle.checked = false;
+      setTableMode('manual');
+      const shift = document.getElementById('shift').value;
+      const start = document.getElementById('start').value;
+      const end = document.getElementById('end').value;
+      const limit = Number(document.getElementById('limit').value) || 500;
+
+      statusEl.innerText = 'Loading data...';
+
+      const today = new Date();
+      const defaultEnd = today.toISOString().slice(0, 10);
+      const defaultStart = new Date(today.getFullYear() - 5, 0, 1).toISOString().slice(0, 10);
+      const startDate = rangeMode === 'all' ? defaultStart : start;
+      const endDate = rangeMode === 'all' ? defaultEnd : end;
+
+      if (!startDate || !endDate) {
+        statusEl.innerText = 'Please select a date range or use Load All.';
+        return;
+      }
+
+      const params = new URLSearchParams({
+        shift,
+        start_date: startDate,
+        end_date: endDate,
+        limit: String(limit)
+      });
+      const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
+      if (ip) params.append('ip', ip);
+
+      const resp = await fetch(`/api/raw?${params.toString()}`);
+      if (!resp.ok) {
+        statusEl.innerText = 'Failed to load data.';
+        return;
+      }
+
+      const rows = await resp.json();
+      renderTable(rows);
+      updateCards(getLatestRow(rows));
+      updateShiftSummary(); // Refresh summary too
+      statusEl.innerText = `Loaded ${rows.length} rows.`;
+    }
+
+    document.getElementById('btn-load').addEventListener('click', () => loadData('range'));
+    document.getElementById('btn-all').addEventListener('click', () => loadData('all'));
+
+    const today = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    document.getElementById('start').valueAsDate = weekAgo;
+    document.getElementById('end').valueAsDate = today;
+
+    // Initial mode
+    const initialLiveToggle = document.getElementById('use-live-table');
+    if (initialLiveToggle.checked) {
+      setTableMode('live');
+    } else {
+      loadData('range');
+    }
+
+    // Store latest table data for download
+    let liveTableRows = [];
+
+    function handleStreamRow(row) {
+      const normalized = normalizeRow(row);
+      if (!normalized.TIMESTAMP) return;
+      updateCards(normalized);
+      const liveToggle = document.getElementById('use-live-table');
+      if (liveToggle.checked) {
+        liveTableRows = [normalized, ...liveTableRows.filter(r => r.TIMESTAMP !== normalized.TIMESTAMP)].slice(0, 10);
+        renderTable(liveTableRows);
+      }
+    }
+
+    // Download CSV logic
+    document.getElementById('btn-download').addEventListener('click', async () => {
+      const useLive = document.getElementById('use-live-table').checked;
+      let data, filename;
+      if (useLive) {
+        if (!liveTableRows.length) {
+          statusEl.innerText = 'No live table data to download.';
+          return;
+        }
+        data = liveTableRows;
+        filename = `Power_Consuption.csv`;
+      } else {
+        const shift = document.getElementById('shift').value;
+        const start = document.getElementById('start').value;
+        const end = document.getElementById('end').value;
+        const limit = Number(document.getElementById('limit').value) || 10;
+        const today = new Date();
+        const defaultEnd = today.toISOString().slice(0, 10);
+        const defaultStart = new Date(today.getFullYear() - 5, 0, 1).toISOString().slice(0, 10);
+        const startDate = start || defaultStart;
+        const endDate = end || defaultEnd;
+        const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
+        data = {
+          shift,
+          start_date: startDate,
+          end_date: endDate,
+          limit,
+          ip
+        };
+        filename = `energy_data_${shift}_${startDate}_${endDate}.csv`;
+      }
+      // Use POST to /api/export/csv
+      const resp = await fetch('/api/export/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(useLive ? { data } : data)
+      });
+      if (!resp.ok) {
+        statusEl.innerText = 'Failed to download data.';
+        return;
+      }
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    });
+
+    // Toggle live/manual table mode
+    document.getElementById('use-live-table').addEventListener('change', (e) => {
+      if (e.target.checked) {
+        setTableMode('live');
+      } else {
+        setTableMode('manual');
+      }
+    });
+
+    // Use global SSE stream from base.html
+    window.addEventListener('sse-data', (e) => {
+       const row = e.detail;
+       handleStreamRow(row);
+    });
+
+    function cleanupDashboardStreams() {
+      // No local stream to close anymore, handled by base.html
+    }
+  </script>
+{% endblock %}
+
+
+

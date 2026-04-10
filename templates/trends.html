@@ -1,0 +1,691 @@
+{% extends "base.html" %}
+
+{% block title %}Trend Charts{% endblock %}
+
+{% block header_title %}ELFORGE ENERGY MONITORING SYSTEM{% endblock %}
+
+{% block head %}
+  <script src="/static/js/main.js"></script>
+  <style>
+    .trend-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    .trend-control {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .trend-control label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .trend-control select, .trend-control input {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+    }
+    .trend-control select:focus, .trend-control input:focus {
+      border-color: var(--accent);
+      background: var(--surface-3);
+      outline: none;
+    }
+    .trend-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .range-presets {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .range-presets .btn {
+      padding: 6px 10px;
+      font-size: 0.85rem;
+    }
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 16px;
+    }
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      min-height: 360px;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .chart-card:hover {
+      border-color: var(--border-glow);
+    }
+    .chart-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .chart-card h3 {
+      margin: 0;
+      font-size: 1rem;
+      color: var(--text);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .chart-stat {
+      font-family: "Courier New", monospace;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      min-width: 72px;
+      text-align: right;
+    }
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 280px;
+    }
+    .status {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 8px 0 12px;
+    }
+    @media (max-width: 480px) {
+      .chart-grid {
+        grid-template-columns: 1fr;
+      }
+      .chart-card {
+        min-height: 280px;
+        padding: 10px;
+      }
+      .chart-wrap {
+        height: 200px;
+      }
+      .trend-controls {
+        padding: 10px;
+      }
+    }
+    @media (max-width: 768px) {
+      .chart-grid {
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+      .chart-card {
+        min-height: 300px;
+      }
+      .chart-wrap {
+        height: 230px;
+      }
+      .trend-controls {
+        grid-template-columns: 1fr;
+      }
+      .range-presets {
+        gap: 6px;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <div class="trend-controls">
+      <div class="trend-control">
+        <label for="trend-shift">Shift</label>
+        <select id="trend-shift">
+          <option value="ALL">All</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+        </select>
+      </div>
+      <div class="trend-control">
+        <label for="trend-start">Start date</label>
+        <input type="date" id="trend-start" />
+      </div>
+      <div class="trend-control">
+        <label for="trend-end">End date</label>
+        <input type="date" id="trend-end" />
+      </div>
+
+      <div class="trend-actions">
+        <button class="btn btn-primary" id="trend-load">Load Trends</button>
+        <button class="btn btn-secondary" id="trend-last">Last 24 Hours</button>
+      </div>
+      <div class="range-presets">
+        <button class="btn btn-secondary" data-range="1D">1D</button>
+        <button class="btn btn-secondary" data-range="1W">1W</button>
+        <button class="btn btn-secondary" data-range="1M">1M</button>
+        <button class="btn btn-secondary" data-range="3M">3M</button>
+        <button class="btn btn-secondary" data-range="1Y">1Y</button>
+      </div>
+    </div>
+
+    <div class="status" id="trend-status">Waiting for data.</div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-head"><h3>Total kWh</h3><span class="chart-stat" id="stat-energy">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-energy"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head"><h3>Power Factor</h3><span class="chart-stat" id="stat-pf">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-pf"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head"><h3>Frequency</h3><span class="chart-stat" id="stat-freq">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-freq"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head"><h3>Voltage RN</h3><span class="chart-stat" id="stat-vr">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-vr"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head"><h3>Voltage YN</h3><span class="chart-stat" id="stat-vy">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-vy"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head"><h3>Voltage BN</h3><span class="chart-stat" id="stat-vb">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-vb"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head"><h3>Voltage RY</h3><span class="chart-stat" id="stat-ry">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-ry"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head"><h3>Voltage YB</h3><span class="chart-stat" id="stat-yb">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-yb"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head"><h3>Voltage BR</h3><span class="chart-stat" id="stat-br">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-br"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head"><h3>Current R</h3><span class="chart-stat" id="stat-ir">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-ir"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head"><h3>Current Y</h3><span class="chart-stat" id="stat-iy">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-iy"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head"><h3>Current B</h3><span class="chart-stat" id="stat-ib">--</span></div>
+        <div class="chart-wrap"><canvas id="chart-ib"></canvas></div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const trendStatus = document.getElementById('trend-status');
+    const palette = [
+      '#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#8b5cf6',
+      '#0ea5e9', '#14b8a6', '#f97316', '#22c55e', '#e11d48',
+      '#9333ea', '#0f766e', '#1d4ed8', '#9a3412'
+    ];
+
+    function buildChart(ctx, label, color) {
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: label,
+            data: [],
+            borderColor: color,
+            backgroundColor: color + '22',
+            borderWidth: 2.5,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 500 },
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            x: {
+              ticks: { maxTicksLimit: 8, color: '#94a3b8' },
+              grid: { display: false }
+            },
+            y: {
+              beginAtZero: false,
+              ticks: { maxTicksLimit: 6, color: '#94a3b8' },
+              grid: { color: 'rgba(148, 163, 184, 0.15)' }
+            }
+          }
+        }
+      });
+    }
+
+    const charts = [
+      { id: 'chart-energy', key: 'ENERGY', label: 'Total kWh', stat: 'stat-energy' },
+      { id: 'chart-pf', key: 'POWER_FACTOR', label: 'Power Factor', stat: 'stat-pf' },
+      { id: 'chart-freq', key: 'FREQUENCY', label: 'Frequency', stat: 'stat-freq' },
+      { id: 'chart-vr', key: 'VR', label: 'Voltage RN', stat: 'stat-vr' },
+      { id: 'chart-vy', key: 'VY', label: 'Voltage YN', stat: 'stat-vy' },
+      { id: 'chart-vb', key: 'VB', label: 'Voltage BN', stat: 'stat-vb' },
+      { id: 'chart-ry', key: 'RY', label: 'Voltage RY', stat: 'stat-ry' },
+      { id: 'chart-yb', key: 'YB', label: 'Voltage YB', stat: 'stat-yb' },
+      { id: 'chart-br', key: 'BR', label: 'Voltage BR', stat: 'stat-br' },
+      { id: 'chart-ir', key: 'IR', label: 'Current R', stat: 'stat-ir' },
+      { id: 'chart-iy', key: 'IY', label: 'Current Y', stat: 'stat-iy' },
+      { id: 'chart-ib', key: 'IB', label: 'Current B', stat: 'stat-ib' }
+    ].map((c, i) => {
+      const ctx = document.getElementById(c.id).getContext('2d');
+      return { ...c, chart: buildChart(ctx, c.label, palette[i % palette.length]) };
+    });
+
+    function toNum(v) {
+      const n = Number(v);
+      return isFinite(n) ? n : null;
+    }
+
+    function formatStat(val) {
+      if (!isFinite(val)) return '--';
+      if (Math.abs(val) >= 1000) return val.toFixed(0);
+      if (Math.abs(val) >= 100) return val.toFixed(1);
+      return val.toFixed(2);
+    }
+
+    function parseTimestamp(ts) {
+      if (!ts) return null;
+      if (ts.includes('T')) return new Date(ts);
+      // Handle "YYYY-MM-DD HH:MM:SS" from SQLite
+      const normalized = ts.replace(' ', 'T');
+      return new Date(normalized);
+    }
+
+    function toLocalDateInput(d) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function toDateKey(ts) {
+      const d = parseTimestamp(ts);
+      if (!isFinite(d)) return null;
+      return d;
+    }
+
+    function getRangeBucket(startDate, endDate) {
+      const ms = endDate - startDate;
+      const days = ms / (1000 * 60 * 60 * 24);
+      if (days <= 3) return 'raw';   /* Show real-time/unbucketed data for short ranges */
+      if (days <= 14) return 'hour';
+      if (days <= 120) return 'day';
+      return 'week';
+    }
+
+    function startOfWeek(d) {
+      const date = new Date(d);
+      const day = date.getDay();
+      const diff = (day + 6) % 7;
+      date.setDate(date.getDate() - diff);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    }
+
+    function startOfMonth(d) {
+      const date = new Date(d.getFullYear(), d.getMonth(), 1);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    }
+
+    function bucketRows(rows, rangeMode) {
+      if (!rows.length) return { labels: [], valuesByKey: {} };
+      const buckets = new Map();
+
+      rows.forEach((r) => {
+        const dt = toDateKey(r.TIMESTAMP);
+        if (!dt) return;
+        let keyDate = new Date(dt);
+        let key = "";
+        
+        const pad = (n) => String(n).padStart(2, '0');
+        const y = keyDate.getFullYear();
+        const m = pad(keyDate.getMonth() + 1);
+        const d = pad(keyDate.getDate());
+        
+        if (rangeMode === 'hour') {
+          keyDate.setMinutes(0, 0, 0);
+          const h = pad(keyDate.getHours());
+          key = `${y}-${m}-${d} ${h}:00`;
+        } else if (rangeMode === 'day') {
+          keyDate.setHours(0, 0, 0, 0);
+          key = `${y}-${m}-${d}`;
+        } else if (rangeMode === 'week') {
+          keyDate = startOfWeek(dt);
+          const wy = keyDate.getFullYear();
+          const wm = pad(keyDate.getMonth() + 1);
+          const wd = pad(keyDate.getDate());
+          key = `${wy}-${wm}-${wd}`;
+        } else {
+          keyDate = startOfMonth(dt);
+          const my = keyDate.getFullYear();
+          const mm = pad(keyDate.getMonth() + 1);
+          key = `${my}-${mm}-01`;
+        }
+        
+        if (!buckets.has(key)) {
+          buckets.set(key, { lastTs: null, last: {} });
+        }
+        const b = buckets.get(key);
+        const ts = dt.getTime();
+        const isLatest = b.lastTs === null || ts >= b.lastTs;
+        if (!isLatest) return;
+        b.lastTs = ts;
+        const keys = [
+          'ENERGY', 'POWER_FACTOR', 'FREQUENCY',
+          'VR', 'VY', 'VB', 'RY', 'YB','BR', 'IR', 'IY', 'IB'
+        ];
+        keys.forEach((k) => {
+          const val = toNum(r[k]);
+          if (!isFinite(val)) return;
+          b.last[k] = val;
+        });
+      });
+
+      const labels = Array.from(buckets.keys()).sort();
+      const valuesByKey = {};
+      labels.forEach((label) => {
+        const b = buckets.get(label);
+        valuesByKey[label] = b.last;
+      });
+      return { labels, valuesByKey };
+    }
+
+    function updateCharts(rows, rangeMode, startDate, endDate, animate = true) {
+      const mode = rangeMode || 'day';
+      let labels;
+      let seriesMap = null;
+
+      if (mode !== 'raw') {
+        const bucketed = bucketRows(rows, mode);
+        labels = bucketed.labels; // Keep original keys for lookup
+        seriesMap = bucketed.valuesByKey;
+      } else {
+        labels = rows.map(r => r.TIMESTAMP || '');
+      }
+
+      // Generate pretty display labels for the X-axis
+      const isMultiDay = startDate && endDate && (Math.abs(new Date(endDate) - new Date(startDate)) > 86400000);
+      const displayLabels = labels.map(l => {
+        const d = parseTimestamp(l);
+        if (!d || isNaN(d)) return l;
+        if (mode === 'raw') {
+          return isMultiDay 
+            ? `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`
+            : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        if (mode === 'hour') return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit' }) + ':00';
+        if (mode === 'day') return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        return d.toLocaleDateString([], { month: 'short', year: 'numeric' });
+      });
+
+      charts.forEach((c) => {
+        let series;
+        if (seriesMap) {
+          series = labels.map(label => {
+            const entry = seriesMap[label] || {};
+            return entry[c.key] ?? null;
+          });
+        } else {
+          series = rows.map(r => toNum(r[c.key]));
+        }
+        const clean = series.filter(v => isFinite(v));
+        let yMin = null;
+        let yMax = null;
+        if (clean.length) {
+          const minVal = Math.min(...clean);
+          const maxVal = Math.max(...clean);
+          const span = Math.max(1, maxVal - minVal);
+          const pad = span * 0.12;
+          yMin = minVal - pad;
+          yMax = maxVal + pad;
+        }
+        c.chart.data.labels = displayLabels;
+        c.chart.data.datasets[0].data = series;
+        c.chart.data.datasets[0].pointRadius = series.length <= 1 ? 4 : 0;
+        c.chart.data.datasets[0].pointHoverRadius = series.length <= 1 ? 6 : 3;
+        if (yMin !== null && yMax !== null) {
+          c.chart.options.scales.y.suggestedMin = yMin;
+          c.chart.options.scales.y.suggestedMax = yMax;
+        }
+        c.chart.update(animate ? undefined : 'none');
+
+        const statEl = document.getElementById(c.stat);
+        if (statEl && series.length) {
+          const latest = series[series.length - 1];
+          statEl.innerText = formatStat(latest);
+        }
+      });
+    }
+
+    function updateChartsFromLiveData() {
+      charts.forEach((c) => {
+        const series = c.chart.data.datasets[0].data;
+        const clean = series.filter(v => isFinite(v));
+        if (clean.length) {
+          const minVal = Math.min(...clean);
+          const maxVal = Math.max(...clean);
+          const span = Math.max(1, maxVal - minVal);
+          const pad = span * 0.12;
+          c.chart.options.scales.y.suggestedMin = minVal - pad;
+          c.chart.options.scales.y.suggestedMax = maxVal + pad;
+        }
+        c.chart.update('none');
+
+        const statEl = document.getElementById(c.stat);
+        if (statEl && series.length) {
+          const latest = series[series.length - 1];
+          statEl.innerText = formatStat(latest);
+        }
+      });
+    }
+
+    function appendLatestRow(row) {
+      if (!row || !row.TIMESTAMP) return;
+      const selectedShift = document.getElementById('trend-shift').value;
+      if (selectedShift !== 'ALL' && row.SHIFT !== selectedShift) return;
+      rawRows = [...rawRows.filter(r => r.TIMESTAMP !== row.TIMESTAMP), row];
+      if (rawRows.length > 5000) rawRows = rawRows.slice(-5000);
+
+      const startDate = document.getElementById('trend-start').value;
+      const endDate = document.getElementById('trend-end').value;
+      if (!startDate || !endDate) return;
+      const startDt = new Date(startDate);
+      const endDt = new Date(endDate);
+      startDt.setHours(0, 0, 0, 0);
+      endDt.setHours(23, 59, 59, 999);
+      const rowDt = parseTimestamp(row.TIMESTAMP);
+      if (!isFinite(rowDt) || rowDt < startDt || rowDt > endDt) return;
+
+      const bucketMode = getRangeBucket(startDt, endDt);
+      const liveMode = currentMode === 'raw' ? 'raw' : bucketMode;
+      updateCharts(rawRows, liveMode, startDt, endDt, false);
+    }
+
+    let rawRows = [];
+    let trendStream = null;
+    let isLoading = false;
+    let loadToken = 0;
+    let lastLiveUpdate = 0;
+    let currentMode = 'raw';
+    let refreshTimerId = null;
+
+    let suppressAnimations = false;
+
+    async function loadTrends(rangeMode) {
+      const token = ++loadToken;
+      isLoading = true;
+      trendStatus.innerText = 'Loading trend data...';
+      const shift = document.getElementById('trend-shift').value;
+      const start = document.getElementById('trend-start').value;
+      const end = document.getElementById('trend-end').value;
+
+      let startDate = start;
+      let endDate = end;
+      if (rangeMode === 'last24') {
+        const now = new Date();
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        startDate = toLocalDateInput(yesterday);
+        endDate = toLocalDateInput(now);
+      }
+
+      if (!startDate || !endDate) {
+        const fallbackStart = new Date();
+        fallbackStart.setDate(fallbackStart.getDate() - 1);
+        startDate = toLocalDateInput(fallbackStart);
+        endDate = toLocalDateInput(new Date());
+        document.getElementById('trend-start').value = startDate;
+        document.getElementById('trend-end').value = endDate;
+      }
+
+      const limit = 10000;
+      const params = new URLSearchParams({
+        shift,
+        start_date: startDate,
+        end_date: endDate,
+        limit: String(limit)
+      });
+      const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
+      if (ip) params.append('ip', ip);
+
+      const resp = await fetch(`/api/raw?${params.toString()}`);
+      if (!resp.ok) {
+        trendStatus.innerText = 'Failed to load trend data.';
+        isLoading = false;
+        return;
+      }
+      const rows = await resp.json();
+      if (token !== loadToken) {
+        return;
+      }
+      const ordered = rows.slice().reverse();
+      rawRows = ordered;
+      const startDt = new Date(startDate);
+      const endDt = new Date(endDate);
+      // Aggregate by range using bucket logic
+      const mode = getRangeBucket(startDt, endDt);
+      currentMode = mode;
+      updateCharts(ordered, mode, startDt, endDt, false);
+      suppressAnimations = false;
+      const now = new Date();
+      trendStatus.innerText = `Loaded ${rows.length} rows. Last update ${now.toLocaleTimeString()}.`;
+
+      startLatestStream();
+      if (currentMode === 'raw') {
+        stopAutoRefresh();
+      } else {
+        startAutoRefresh();
+      }
+      isLoading = false;
+    }
+
+    document.getElementById('trend-load').addEventListener('click', () => loadTrends('range'));
+    document.getElementById('trend-last').addEventListener('click', () => loadTrends('last24'));
+
+    function applyPreset(range) {
+      const end = new Date();
+      const start = new Date(end);
+      if (range === '1D') start.setDate(end.getDate() - 1);
+      if (range === '1W') start.setDate(end.getDate() - 7);
+      if (range === '1M') start.setMonth(end.getMonth() - 1);
+      if (range === '3M') start.setMonth(end.getMonth() - 3);
+      if (range === '1Y') start.setFullYear(end.getFullYear() - 1);
+      document.getElementById('trend-start').value = toLocalDateInput(start);
+      document.getElementById('trend-end').value = toLocalDateInput(end);
+      suppressAnimations = true;
+      if (trendStream) {
+        trendStream.close();
+        trendStream = null;
+      }
+      loadTrends('range');
+    }
+
+    document.querySelectorAll('.range-presets [data-range]').forEach((btn) => {
+      btn.addEventListener('click', () => applyPreset(btn.dataset.range));
+    });
+
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    document.getElementById('trend-start').value = toLocalDateInput(yesterday);
+    document.getElementById('trend-end').value = toLocalDateInput(today);
+
+    // Use global SSE stream from base.html
+    window.addEventListener('sse-data', (e) => {
+      if (isLoading) return;
+      const row = e.detail;
+      const now = Date.now();
+      if (now - lastLiveUpdate > 800) {
+        lastLiveUpdate = now;
+        appendLatestRow(row);
+      }
+    });
+
+    function startLatestStream() {
+      // Logic removed: now using global stream from base.html
+    }
+
+    function startAutoRefresh() {
+      if (refreshTimerId) return;
+      refreshTimerId = setInterval(() => {
+        suppressAnimations = true;
+        loadTrends('range');
+      }, 30000);
+    }
+
+    function stopAutoRefresh() {
+      if (!refreshTimerId) return;
+      clearInterval(refreshTimerId);
+      refreshTimerId = null;
+    }
+
+    loadTrends('last24');
+
+    function cleanupTrendPage() {
+      if (trendStream) {
+        trendStream.close();
+        trendStream = null;
+      }
+      stopAutoRefresh();
+    }
+    window.addEventListener('pagehide', cleanupTrendPage);
+    window.addEventListener('beforeunload', cleanupTrendPage);
+  </script>
+{% endblock %}

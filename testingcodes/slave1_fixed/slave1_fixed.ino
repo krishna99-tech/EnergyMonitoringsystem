@@ -1,0 +1,130 @@
+// ============================================================
+//  ESP32 Modbus RTU SLAVE 1  —  MFM384 simulator  (FIXED)
+//  Slave ID : 1  |  Baud: 9600  |  Parity: None (8N1)
+//  Fix: Registers declared individually to match MFM384 gaps
+// ============================================================
+
+#include <ModbusRTU.h>
+
+/* ================= RS485 PINS ================= */
+#define RXD2   32
+#define TXD2   33
+#define DE_RE  4
+
+/* ================= SLAVE CONFIG ================= */
+#define SLAVE_ID   1
+#define BAUD_RATE  9600
+
+/* ================= MFM384 REGISTER MAP ================= */
+#define REG_VR      0
+#define REG_VY      2
+#define REG_VB      4
+#define REG_RY      8
+#define REG_YB      10
+#define REG_BR      12
+#define REG_IR      16
+#define REG_IY      18
+#define REG_IB      20
+#define REG_PF      54
+#define REG_FREQ    56
+#define REG_ENERGY  96
+
+ModbusRTU mb;
+
+unsigned long lastUpdate = 0;
+#define UPDATE_INTERVAL_MS  2000
+
+/* ================= FLOAT → DCBA ENCODE ================= */
+void encodeDCBA(float val, uint16_t* r0, uint16_t* r1) {
+  union { float f; uint8_t b[4]; } u;
+  u.f  = val;
+  *r0  = ((uint16_t)u.b[2]) | ((uint16_t)u.b[3] << 8);
+  *r1  = ((uint16_t)u.b[0]) | ((uint16_t)u.b[1] << 8);
+}
+
+/* ================= WRITE FLOAT TO MODBUS IREGS ================= */
+void writeFloat(uint16_t reg, float val) {
+  uint16_t r0, r1;
+  encodeDCBA(val, &r0, &r1);
+  mb.Ireg(reg,     r0);
+  mb.Ireg(reg + 1, r1);
+}
+
+/* ================= RANDOM FLOAT ================= */
+float randFloat(float lo, float hi) {
+  return lo + ((float)random(10000) / 10000.0f) * (hi - lo);
+}
+
+/* ================= UPDATE ALL REGISTERS ================= */
+void updateRegisters() {
+  writeFloat(REG_VR,  randFloat(210.0f, 240.0f));
+  writeFloat(REG_VY,  randFloat(210.0f, 240.0f));
+  writeFloat(REG_VB,  randFloat(210.0f, 240.0f));
+
+  writeFloat(REG_RY,  randFloat(360.0f, 415.0f));
+  writeFloat(REG_YB,  randFloat(360.0f, 415.0f));
+  writeFloat(REG_BR,  randFloat(360.0f, 415.0f));
+
+  writeFloat(REG_IR,  randFloat(0.0f, 100.0f));
+  writeFloat(REG_IY,  randFloat(0.0f, 100.0f));
+  writeFloat(REG_IB,  randFloat(0.0f, 100.0f));
+
+  writeFloat(REG_PF,  randFloat(0.75f, 1.00f));
+  writeFloat(REG_FREQ,randFloat(49.5f, 50.5f));
+
+  static float energy = 1000.0f;
+  energy += randFloat(0.01f, 0.05f);
+  writeFloat(REG_ENERGY, energy);
+
+  Serial.println("📊 [SLAVE 1] Registers refreshed");
+}
+
+/* ================= SETUP ================= */
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+  Serial.println("\n🟢 ESP32 Modbus RTU SLAVE 1 — MFM384 Simulator (Fixed)");
+  Serial.printf("   Slave ID : %d\n", SLAVE_ID);
+  Serial.printf("   Baud     : %d  |  Parity: None (8N1)\n\n", BAUD_RATE);
+
+  pinMode(DE_RE, OUTPUT);
+  digitalWrite(DE_RE, LOW);
+
+  randomSeed(analogRead(0) ^ analogRead(1));
+
+  Serial2.begin(BAUD_RATE, SERIAL_8N1, RXD2, TXD2);
+  mb.begin(&Serial2, DE_RE);
+  mb.slave(SLAVE_ID);
+
+  // -------------------------------------------------------
+  // Declare ONLY the register PAIRS that the master reads.
+  // Each float uses 2 consecutive registers → addIreg(addr, count=2)
+  // This exactly mirrors the MFM384 sparse register map.
+  // -------------------------------------------------------
+  mb.addIreg(REG_VR,     2);   // 0,1
+  mb.addIreg(REG_VY,     2);   // 2,3
+  mb.addIreg(REG_VB,     2);   // 4,5
+  mb.addIreg(REG_RY,     2);   // 8,9
+  mb.addIreg(REG_YB,     2);   // 10,11
+  mb.addIreg(REG_BR,     2);   // 12,13
+  mb.addIreg(REG_IR,     2);   // 16,17
+  mb.addIreg(REG_IY,     2);   // 18,19
+  mb.addIreg(REG_IB,     2);   // 20,21
+  mb.addIreg(REG_PF,     2);   // 54,55
+  mb.addIreg(REG_FREQ,   2);   // 56,57
+  mb.addIreg(REG_ENERGY, 2);   // 96,97
+
+  updateRegisters(); // Pre-fill before master connects
+
+  Serial.println("✅ Slave ready — listening on RS485 bus\n");
+}
+
+/* ================= LOOP ================= */
+void loop() {
+  mb.task();
+
+  if (millis() - lastUpdate > UPDATE_INTERVAL_MS) {
+    lastUpdate = millis();
+    updateRegisters();
+  }
+}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - ELFORGE Energy Monitor{% endblock %}
+
+{% block head %}
+<style>
+  .placeholder-card {
+    background: var(--card-bg, var(--card));
+    border-radius: 20px;
+    padding: 60px 20px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    margin: 40px auto;
+    max-width: 800px;
+  }
+  .placeholder-icon {
+    font-size: 4rem;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+  .placeholder-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .placeholder-desc {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.6);
+  }
+  html[data-theme="light"] .placeholder-desc {
+    color: rgba(0, 0, 0, 0.6);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="placeholder-card">
+  <i class="fa-solid fa-sliders placeholder-icon"></i>
+  <h2 class="placeholder-title">System Settings</h2>
+  <p class="placeholder-desc">This module is under development. Future enhancements will allow you to manage registered devices, system variables, global parameters, and user permissions.</p>
+</div>
+{% endblock %}

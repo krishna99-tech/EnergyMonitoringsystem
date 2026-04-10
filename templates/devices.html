@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Select Device - Energy Monitoring System{% endblock %}
+
+{% block head %}
+<style>
+  .devices-container {
+    padding: 40px 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .devices-header {
+    margin-bottom: 40px;
+  }
+  .devices-header h2 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 10px;
+    background: linear-gradient(to right, var(--accent), var(--accent-3));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .devices-header p {
+    font-size: 1.1rem;
+    color: var(--muted);
+    margin-bottom: 30px;
+  }
+  .devices-toolbar {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 40px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    align-items: center;
+  }
+  .search-input-wrapper {
+    flex: 1;
+    position: relative;
+  }
+  .search-input-wrapper i {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+  }
+  .search-input {
+    width: 100%;
+    padding: 12px 16px 12px 45px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  .search-input:focus {
+    border-color: var(--accent);
+    box-shadow: var(--glow-blue);
+  }
+  html[data-theme="light"] .search-input {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  }
+  .device-grid {
+    display: grid;
+    /* Reduced grid column min-width from 280px to 220px to fit more cards */
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px; /* Reduced gap */
+  }
+  .device-card {
+    background: var(--card-bg, var(--card));
+    color: var(--card-text, var(--text));
+    border: none;
+    border-radius: 16px; /* Slightly smaller radius */
+    padding: 24px 16px; /* Reduced padding */
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+    transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px; /* Reduced gap */
+    position: relative;
+    overflow: hidden;
+  }
+  .device-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+  }
+  .device-icon {
+    font-size: 2.4rem; /* Reduced from 3.5rem */
+    color: inherit;
+    opacity: 0.9;
+    margin-bottom: 6px;
+  }
+  .device-name {
+    font-size: 1.3rem; /* Reduced from 1.8rem */
+    font-weight: 700;
+    color: inherit;
+    margin: 0;
+  }
+  .device-ip {
+    font-size: 0.95rem; /* Reduced from 1.1rem */
+    color: inherit;
+    opacity: 0.85;
+    font-family: monospace;
+    background: rgba(0,0,0,0.15);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  
+  /* Hide sidebar entirely on the device selection page */
+  .sidebar { 
+    display: none !important; 
+  }
+  .content { 
+    margin-left: 0 !important; 
+  }
+  .burger-btn { 
+    display: none !important; 
+  }
+  
+  @media (max-width: 600px) {
+    .devices-container {
+      padding: 20px 15px;
+    }
+    .devices-header h2 {
+      font-size: 1.8rem;
+    }
+    .devices-header p {
+      font-size: 0.95rem;
+    }
+    .devices-toolbar {
+      flex-direction: column;
+      gap: 10px;
+    }
+    .devices-toolbar button {
+      width: 100%;
+      justify-content: center;
+    }
+    .device-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="devices-container">
+  <div class="devices-header">
+    <h2>Select a Device</h2>
+    <p>Please select a device to view its dashboard, gauges, and trends.</p>
+  </div>
+  
+  <div class="devices-toolbar">
+    <div class="search-input-wrapper">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="device-search" class="search-input" placeholder="Search by name or IP...">
+    </div>
+    <button id="refresh-btn" class="btn btn-secondary" onclick="loadDevices()" title="Refresh" style="padding: 12px 18px; border-radius: var(--radius-lg);">
+      <i class="fa-solid fa-rotate-right"></i>
+    </button>
+  </div>
+
+  <div id="loading" style="font-size: 1.2rem; margin: 40px; color: var(--muted);"><i class="fa-solid fa-circle-notch fa-spin" style="margin-right: 10px;"></i> Loading devices...</div>
+  
+  <div class="device-grid" id="device-grid">
+    <!-- Devices will be injected here -->
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function getColorStyles(name) {
+      const n = (name || '').toLowerCase();
+      if (n.includes('yellow') || n.includes('amber')) return { bg: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)', text: '#fff', raw: '#f59e0b' };
+      if (n.includes('blue')) return { bg: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)', text: '#fff', raw: '#3b82f6' };
+      if (n.includes('green')) return { bg: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)', text: '#fff', raw: '#10b981' };
+      if (n.includes('pink') || n.includes('rose')) return { bg: 'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)', text: '#fff', raw: '#ec4899' };
+      if (n.includes('white') || n.includes('silver')) return { bg: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', text: '#1e293b', raw: '#f8fafc' };
+      if (n.includes('purple') || n.includes('violet')) return { bg: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)', text: '#fff', raw: '#8b5cf6' };
+      if (n.includes('red')) return { bg: 'linear-gradient(135deg, #ef4444 0%, #f87171 100%)', text: '#fff', raw: '#ef4444' };
+      if (n.includes('orange')) return { bg: 'linear-gradient(135deg, #f97316 0%, #fb923c 100%)', text: '#fff', raw: '#f97316' };
+      if (n.includes('teal') || n.includes('cyan')) return { bg: 'linear-gradient(135deg, #14b8a6 0%, #2dd4bf 100%)', text: '#fff', raw: '#14b8a6' };
+      
+      const fallbackStyles = [
+        { bg: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)', text: '#fff', raw: '#f59e0b' },
+        { bg: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)', text: '#fff', raw: '#3b82f6' },
+        { bg: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)', text: '#fff', raw: '#10b981' },
+      ];
+      let hash = 0;
+      for (let i = 0; i < n.length; i++) hash = n.charCodeAt(i) + ((hash << 5) - hash);
+      return fallbackStyles[Math.abs(hash) % fallbackStyles.length];
+    }
+  
+  const cardIcons = ['fa-server', 'fa-microchip', 'fa-network-wired', 'fa-hdd', 'fa-database', 'fa-laptop-code'];
+  
+  document.body.classList.add('no-device');
+  
+  let allDevices = [];
+
+  function renderDevices(devices) {
+    const grid = document.getElementById('device-grid');
+    grid.innerHTML = '';
+    
+    if (!devices || devices.length === 0) {
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--muted); padding: 40px; background: var(--surface-2); border-radius: var(--radius-lg); border: 1px dashed var(--border);">No devices found matching your criteria.</div>';
+      return;
+    }
+    
+    devices.forEach((device, index) => {
+      const ip = device.device_ip;
+      const name = device.name;
+      const isActive = device.active;
+      const lastSeen = device.last_seen;
+      const style = getColorStyles(name);
+      const icon = cardIcons[index % cardIcons.length];
+      
+      const card = document.createElement('div');
+      card.className = 'device-card';
+      card.style.setProperty('--card-bg', style.bg);
+      card.style.setProperty('--card-text', style.text);
+      
+      card.innerHTML = `
+        <i class="fa-solid ${icon} device-icon"></i>
+        <h3 class="device-name">${name}</h3>
+        <div class="device-ip"><i class="fa-solid fa-microchip" style="margin-right: 6px; font-size: 0.85em; opacity: 0.7;"></i>ID: ${ip}</div>
+        <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px; align-items: center;">
+          <span class="pill ${isActive ? 'online' : 'offline'}" style="background: ${isActive ? 'rgba(52,211,153,0.2)' : 'rgba(248,113,113,0.2)'}; border-color: rgba(255,255,255,0.3); color: inherit; padding: 4px 12px;">
+            <i class="fa-solid ${isActive ? 'fa-signal' : 'fa-plug-circle-xmark'}" style="margin-right: 4px;"></i> 
+            ${isActive ? 'Active' : 'Offline'}
+          </span>
+          <div style="font-size: 0.75rem; opacity: 0.7;">Last Seen: ${lastSeen}</div>
+        </div>
+      `;
+      
+      card.addEventListener('click', () => {
+        localStorage.setItem('selected_ip', ip);
+        localStorage.setItem('selected_name', name);
+        localStorage.setItem('selected_bg', style.bg);
+        localStorage.setItem('selected_text', style.text);
+        window.location.href = `/dashboard?ip=${encodeURIComponent(ip)}`;
+      });
+      
+      grid.appendChild(card);
+    });
+  }
+
+  async function loadDevices() {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('device-grid').innerHTML = '';
+    const btnIcon = document.querySelector('#refresh-btn i');
+    if (btnIcon) btnIcon.classList.add('fa-spin');
+    
+    try {
+      const response = await fetch('/api/devices');
+      allDevices = await response.json();
+      document.getElementById('loading').style.display = 'none';
+      if (btnIcon) btnIcon.classList.remove('fa-spin');
+      
+      // trigger search filter
+      const q = document.getElementById('device-search').value.toLowerCase();
+      const filtered = q ? allDevices.filter(d => d.name.toLowerCase().includes(q) || d.device_ip.includes(q)) : allDevices;
+      renderDevices(filtered);
+      
+    } catch (e) {
+      document.getElementById('loading').innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Failed to load devices.';
+      if (btnIcon) btnIcon.classList.remove('fa-spin');
+      console.error(e);
+    }
+  }
+
+  document.getElementById('device-search').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase();
+    const filtered = allDevices.filter(d => d.name.toLowerCase().includes(q) || d.device_ip.includes(q));
+    renderDevices(filtered);
+  });
+
+  loadDevices();
+</script>
+{% endblock %}

@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+
+{% block title %}ELFORGE ENERGY MONITORING SYSTEM{% endblock %}
+
+{% block header_title %}ELFORGE ENERGY MONITORING SYSTEM{% endblock %}
+
+{% block head %}
+  <script src="/static/js/main.js"></script>
+  <style>
+    .gauges-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .gauge-wrapper {
+      text-align: center;
+      position: relative;
+      padding: 10px;
+      background: var(--card);
+      border-radius: 8px;
+      min-width: 0;
+      width: 100%;
+      max-width: 450px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      border: 2px solid transparent;
+    }
+    .gauge-wrapper:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+    .gauge-wrapper strong {
+      display: block;
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .gauge-container {
+      position: relative;
+      width: 100%;
+      height: 220px;
+    }
+    .gauge-container canvas {
+      width: 100%;
+      height: 100%;
+    }
+    .lcd-display {
+      margin-top: 10px;
+      background: #1e293b;
+      color: #4ade80;
+      font-family: "Courier New", monospace;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      display: inline-block;
+      min-width: 100px;
+    }
+    .status-indicator {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+    }
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .gauge-wrapper.danger-pulse {
+      animation: pulse-red 2s infinite;
+      border-color: var(--danger) !important;
+    }
+    @media (max-width: 768px) {
+      .gauges-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .gauge-container {
+        height: 200px;
+      }
+      .lcd-display {
+        font-size: 1rem;
+      }
+    }
+    @media (max-width: 700px) {
+      .gauge-container {
+        height: auto;
+        aspect-ratio: 1.6;
+      }
+    }
+    @media (max-width: 480px) {
+      .gauges-grid {
+        grid-template-columns: 1fr;
+      }
+      .gauge-wrapper {
+        padding: 8px;
+      }
+      .gauge-container {
+        height: 180px;
+      }
+      .lcd-display {
+        font-size: 0.95rem;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="container container--compact">
+    <div class="gauges-grid">
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Total kWh</strong>
+        <div class="gauge-container"><canvas id="g_kwh"></canvas></div>
+        <div class="lcd-display" id="d_kwh" aria-live="polite">0.0 kWh</div>
+      </div>
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Power Factor</strong>
+        <div class="gauge-container"><canvas id="g_pf"></canvas></div>
+        <div class="lcd-display" id="d_pf" aria-live="polite">0.00 PF</div>
+      </div>
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Frequency</strong>
+        <div class="gauge-container"><canvas id="g_freq"></canvas></div>
+        <div class="lcd-display" id="d_freq" aria-live="polite">0.0 Hz</div>
+      </div>
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Voltage RN</strong>
+        <div class="gauge-container"><canvas id="g_vrn"></canvas></div>
+        <div class="lcd-display" id="d_vrn" aria-live="polite">0.0 V</div>
+      </div>
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Voltage YN</strong>
+        <div class="gauge-container"><canvas id="g_vyn"></canvas></div>
+        <div class="lcd-display" id="d_vyn" aria-live="polite">0.0 V</div>
+      </div>
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Voltage BN</strong>
+        <div class="gauge-container"><canvas id="g_vbn"></canvas></div>
+        <div class="lcd-display" id="d_vbn" aria-live="polite">0.0 V</div>
+      </div>
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Voltage RY</strong>
+        <div class="gauge-container"><canvas id="g_vry"></canvas></div>
+        <div class="lcd-display" id="d_vry" aria-live="polite">0.0 V</div>
+      </div>
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Voltage YB</strong>
+        <div class="gauge-container"><canvas id="g_vyb"></canvas></div>
+        <div class="lcd-display" id="d_vyb" aria-live="polite">0.0 V</div>
+      </div>
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Voltage BR</strong>
+        <div class="gauge-container"><canvas id="g_vbr"></canvas></div>
+        <div class="lcd-display" id="d_vbr" aria-live="polite">0.0 V</div>
+      </div>
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Current R</strong>
+        <div class="gauge-container"><canvas id="g_ir"></canvas></div>
+        <div class="lcd-display" id="d_ir" aria-live="polite">0.00 A</div>
+      </div>
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Current Y</strong>
+        <div class="gauge-container"><canvas id="g_iy"></canvas></div>
+        <div class="lcd-display" id="d_iy" aria-live="polite">0.00 A</div>
+      </div>
+      <div class="gauge-wrapper">
+        <div class="status-indicator" aria-hidden="true"></div>
+        <strong>Current B</strong>
+        <div class="gauge-container"><canvas id="g_ib"></canvas></div>
+        <div class="lcd-display" id="d_ib" aria-live="polite">0.00 A</div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const gaugeNeedlePlugin = {
+      id: 'gaugeNeedle',
+      afterDatasetsDraw(chart) {
+        const { ctx, chartArea, data } = chart;
+        const dataset = data.datasets[0];
+
+        const cx = (chartArea.left + chartArea.right) / 2;
+        const cy = (chartArea.top + chartArea.bottom) / 2;
+        const radius = Math.min(chartArea.right - chartArea.left, chartArea.bottom - chartArea.top) / 2;
+
+        const value = dataset.needleValue || 0;
+        const max = dataset.max || 100;
+        const min = dataset.min || 0;
+
+        const startAngle = -120;
+        const endAngle = 120;
+        const range = endAngle - startAngle;
+        const percentage = (value - min) / (max - min);
+        const angle = (startAngle + (percentage * range)) * (Math.PI / 180);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius - 3, 0, Math.PI * 2);
+
+        let borderColor = '#10b981';
+        if (percentage > 0.85) borderColor = '#ef4444';
+        else if (percentage > 0.60) borderColor = '#f59e0b';
+
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 5;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        ctx.stroke();
+        ctx.restore();
+
+        for (let i = 0; i <= 10; i++) {
+          const tickAngle = (startAngle + (i / 10) * range) * (Math.PI / 180);
+          const isMain = i % 2 === 0;
+          const tickLength = isMain ? 10 : 5;
+          const tickWidth = isMain ? 2 : 1;
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(tickAngle);
+          ctx.beginPath();
+          ctx.moveTo(0, -(radius - 8));
+          ctx.lineTo(0, -(radius - 8 - tickLength));
+          ctx.strokeStyle = isMain ? '#475569' : '#94a3b8';
+          ctx.lineWidth = tickWidth;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        ctx.fillStyle = '#475569';
+        ctx.font = 'bold 9px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const tickLabelValues = Array.isArray(dataset.tickLabelValues) ? dataset.tickLabelValues : null;
+        const tickLabelFormatter = typeof dataset.tickLabelFormatter === 'function'
+          ? dataset.tickLabelFormatter
+          : function(v) { return String(Math.round(v)); };
+
+        if (tickLabelValues && tickLabelValues.length > 0) {
+          tickLabelValues.forEach(function(labelValue) {
+            const p = (labelValue - min) / (max - min);
+            const tickAngle = (startAngle + (p * range)) * (Math.PI / 180);
+            const labelRadius = radius - 28;
+            const x = cx + labelRadius * Math.sin(tickAngle);
+            const y = cy - labelRadius * Math.cos(tickAngle);
+            ctx.fillText(tickLabelFormatter(labelValue), x, y);
+          });
+        } else {
+          for (let i = 0; i <= 10; i += 2) {
+            const tickAngle = (startAngle + (i / 10) * range) * (Math.PI / 180);
+            const labelRadius = radius - 28;
+            const x = cx + labelRadius * Math.sin(tickAngle);
+            const y = cy - labelRadius * Math.cos(tickAngle);
+            const labelValue = min + ((max - min) * i / 10);
+            ctx.fillText(tickLabelFormatter(labelValue), x, y);
+          }
+        }
+
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 5;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+
+        const needleLength = radius - 20;
+        const needleWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(-needleWidth, 0);
+        ctx.lineTo(0, -needleLength);
+        ctx.lineTo(needleWidth, 0);
+        ctx.lineTo(0, 8);
+        ctx.closePath();
+
+        let nColor1 = '#10b981';
+        let nColor2 = '#059669';
+        if (percentage > 0.85) {
+          nColor1 = '#ef4444';
+          nColor2 = '#dc2626';
+        } else if (percentage > 0.60) {
+          nColor1 = '#f59e0b';
+          nColor2 = '#d97706';
+        }
+
+        const gradient = ctx.createLinearGradient(0, -needleLength, 0, 8);
+        gradient.addColorStop(0, nColor1);
+        gradient.addColorStop(1, nColor2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = '#7f1d1d';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+        const capGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 8);
+        capGradient.addColorStop(0, '#f8f9fa');
+        capGradient.addColorStop(1, '#dee2e6');
+        ctx.fillStyle = capGradient;
+        ctx.fill();
+        ctx.strokeStyle = '#6c757d';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#495057';
+        ctx.fill();
+      }
+    };
+
+    function createGauge(id, min, max, options = {}) {
+      return new Chart(document.getElementById(id), {
+        type: 'doughnut',
+        data: {
+          datasets: [{
+            data: [1],
+            backgroundColor: ['transparent'],
+            borderWidth: 0,
+            needleValue: min,
+            min: min,
+            max: max,
+            tickLabelValues: options.tickLabelValues || null,
+            tickLabelFormatter: options.tickLabelFormatter || null,
+            hoverBackgroundColor: ['transparent'],
+            hoverBorderColor: ['transparent']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          circumference: 240,
+          rotation: -120,
+          cutout: '75%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              enabled: true,
+              displayColors: false,
+              callbacks: {
+                label: function(context) {
+                  return 'Value: ' + context.dataset.needleValue.toFixed(2);
+                }
+              }
+            }
+          },
+          animation: {
+            animateRotate: true,
+            animateScale: false
+          }
+        },
+        plugins: [gaugeNeedlePlugin]
+      });
+    }
+
+    const gauges = {
+      g_kwh: createGauge('g_kwh', 0, 100000),
+      g_pf: createGauge('g_pf', 0, 1, {
+        tickLabelValues: [0, 0.25, 0.50, 0.75, 1.0],
+        tickLabelFormatter: (v) => (v === 0 ? '0' : v.toFixed(2))
+      }),
+      g_freq: createGauge('g_freq', 0, 70),
+      g_vrn: createGauge('g_vrn', 0, 500),
+      g_vyn: createGauge('g_vyn', 0, 500),
+      g_vbn: createGauge('g_vbn', 0, 500),
+      g_vry: createGauge('g_vry', 0, 500),
+      g_vbr: createGauge('g_vbr', 0, 500),
+      g_vyb: createGauge('g_vyb', 0, 500),
+      g_ir: createGauge('g_ir', 0, 500),
+      g_iy: createGauge('g_iy', 0, 500),
+      g_ib: createGauge('g_ib', 0, 500)
+    };
+
+    function updateGaugeDisplay(gauge, value, displayElId, unit, precision) {
+      const displayEl = document.getElementById(displayElId);
+      if (!displayEl) return;
+
+      const max = gauge.data.datasets[0].max;
+      const percentage = max > 0 ? value / max : 0;
+
+      gauge.data.datasets[0].needleValue = value;
+      gauge.update('active');
+      displayEl.innerText = value.toFixed(precision).padStart(5, '0') + ` ${unit}`;
+
+      const wrapper = displayEl.closest('.gauge-wrapper');
+      let color = '#4ade80';
+      if (percentage > 0.85) {
+        color = 'var(--danger)';
+        if (wrapper) wrapper.classList.add('danger-pulse');
+      } else if (percentage > 0.60) {
+        color = 'var(--warning)';
+        if (wrapper) wrapper.classList.remove('danger-pulse');
+      } else {
+        if (wrapper) wrapper.classList.remove('danger-pulse');
+      }
+      displayEl.style.color = color;
+      if (wrapper) {
+        wrapper.style.borderColor = color;
+      }
+    }
+
+    function handleData(d) {
+      const energyVal = Number(d.ENERGY ?? 0);
+      const pfVal = Number(d.POWER_FACTOR ?? 0);
+      const freqVal = Number(d.FREQUENCY ?? 0);
+      const vr = Number(d.VR ?? 0);
+      const vy = Number(d.VY ?? 0);
+      const vb = Number(d.VB ?? 0);
+      const ry = Number(d.RY ?? 0);
+      const yb = Number(d.YB ?? 0);
+      const br = Number(d.BR ?? 0);
+      const ir = Number(d.IR ?? 0);
+      const iy = Number(d.IY ?? 0);
+      const ib = Number(d.IB ?? 0);
+
+      updateGaugeDisplay(gauges.g_kwh, energyVal, 'd_kwh', 'kWh', 1);
+      updateGaugeDisplay(gauges.g_pf, pfVal, 'd_pf', 'PF', 2);
+      updateGaugeDisplay(gauges.g_freq, freqVal, 'd_freq', 'Hz', 1);
+      updateGaugeDisplay(gauges.g_vrn, vr, 'd_vrn', 'V', 1);
+      updateGaugeDisplay(gauges.g_vyn, vy, 'd_vyn', 'V', 1);
+      updateGaugeDisplay(gauges.g_vbn, vb, 'd_vbn', 'V', 1);
+      updateGaugeDisplay(gauges.g_vry, ry, 'd_vry', 'V', 1);
+      updateGaugeDisplay(gauges.g_vbr, br, 'd_vbr', 'V', 1);
+      updateGaugeDisplay(gauges.g_vyb, yb, 'd_vyb', 'V', 1);
+      updateGaugeDisplay(gauges.g_ir, ir, 'd_ir', 'A', 2);
+      updateGaugeDisplay(gauges.g_iy, iy, 'd_iy', 'A', 2);
+      updateGaugeDisplay(gauges.g_ib, ib, 'd_ib', 'A', 2);
+    }
+
+    const ipParam = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
+    
+    async function loadInitial() {
+      let url = '/api/latest';
+      if (ipParam) url += '?ip=' + encodeURIComponent(ipParam);
+      try {
+        const r = await fetch(url);
+        if (r.ok) {
+          const data = await r.json();
+          if (data && Object.keys(data).length > 0) {
+            handleData(data);
+          }
+        }
+      } catch (e) {}
+    }
+    loadInitial();
+
+    // Use global SSE stream from base.html
+    window.addEventListener('sse-data', (e) => {
+      const row = e.detail;
+      handleData(row);
+    });
+
+    function cleanupGaugeStreams() {
+      // Handled globally in base.html
+    }
+  </script>
+{% endblock %}
