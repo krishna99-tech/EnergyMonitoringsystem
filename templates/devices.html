@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Select Device - Energy Monitoring System{% endblock %}
+{% block title %}Devices & Reports - Energy Monitoring System{% endblock %}
 
 {% block head %}
 <style>
@@ -8,145 +8,277 @@
     padding: 40px 20px;
     max-width: 1400px;
     margin: 0 auto;
-    text-align: center;
   }
   .devices-header {
     margin-bottom: 40px;
+    text-align: center;
   }
   .devices-header h2 {
-    font-size: 2.5rem;
+    font-size: 2.8rem;
     font-weight: 800;
     color: var(--text);
-    margin-bottom: 10px;
-    background: linear-gradient(to right, var(--accent), var(--accent-3));
+    margin-bottom: 15px;
+    background: linear-gradient(to right, var(--accent), var(--accent-3), var(--accent-2));
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
   .devices-header p {
-    font-size: 1.1rem;
-    color: var(--muted);
-    margin-bottom: 30px;
+    font-size: 1.15rem;
+    color: var(--text-muted);
+    max-width: 700px;
+    margin: 0 auto 30px;
   }
-  .devices-toolbar {
+
+  /* ── Sections ─────────────────────────────────────────── */
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 40px 0 20px;
     display: flex;
-    gap: 15px;
-    margin-bottom: 40px;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
     align-items: center;
+    gap: 12px;
   }
-  .search-input-wrapper {
-    flex: 1;
-    position: relative;
+  .section-title i {
+    color: var(--accent);
+    padding: 8px;
+    background: rgba(56,189,248,0.1);
+    border-radius: 10px;
+    font-size: 1.1rem;
   }
-  .search-input-wrapper i {
-    position: absolute;
-    left: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--muted);
+
+  /* ── Device Grid ───────────────────────────────────────── */
+  .device-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 25px;
+    margin-bottom: 60px;
   }
-  .search-input {
-    width: 100%;
-    padding: 12px 16px 12px 45px;
-    border-radius: var(--radius-lg);
+  .device-card {
+    background: var(--surface);
     border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .device-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; width: 100%; height: 6px;
+    background: var(--card-color, var(--accent));
+    opacity: 0.8;
+  }
+  .device-card:hover {
+    transform: translateY(-8px);
+    border-color: var(--card-color, var(--accent));
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+  }
+  .device-icon-wrapper {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--card-color, var(--accent));
+  }
+  .device-info h3 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .device-id-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
     background: var(--surface-2);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-muted);
+  }
+  .device-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .status-dot.online { background: var(--success); box-shadow: 0 0 10px var(--success); }
+  .status-dot.offline { background: var(--danger); }
+
+  /* ── Report Generator ────────────────────────────────────── */
+  .report-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 35px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+  }
+  .report-container::after {
+    content: '';
+    position: absolute; top: -100px; right: -100px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(56,189,248,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .report-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 30px;
+  }
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .form-group label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .input-control {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
     color: var(--text);
     font-family: inherit;
     font-size: 1rem;
     outline: none;
     transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   }
-  .search-input:focus {
+  .input-control:focus {
     border-color: var(--accent);
-    box-shadow: var(--glow-blue);
+    box-shadow: 0 0 0 3px rgba(56,189,248,0.1);
   }
-  html[data-theme="light"] .search-input {
-      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+
+  .shift-selector {
+    display: flex;
+    gap: 10px;
   }
-  .device-grid {
-    display: grid;
-    /* Reduced grid column min-width from 280px to 220px to fit more cards */
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 20px; /* Reduced gap */
-  }
-  .device-card {
-    background: var(--card-bg, var(--card));
-    color: var(--card-text, var(--text));
-    border: none;
-    border-radius: 16px; /* Slightly smaller radius */
-    padding: 24px 16px; /* Reduced padding */
+  .shift-btn {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    border-radius: 10px;
+    color: var(--text-muted);
+    font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
-    transition: all 0.25s ease;
+    transition: all 0.2s;
+  }
+  .shift-btn.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(56,189,248,0.3);
+  }
+
+  .slave-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    padding: 15px;
+    background: var(--surface-2);
+    border-radius: 15px;
+    border: 1px solid var(--border);
+  }
+  .slave-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+  .slave-item:hover { background: var(--surface-3); }
+  .slave-item input {
+    accent-color: var(--accent);
+    width: 18px;
+    height: 18px;
+  }
+
+  .report-summary-panel {
+    margin-top: 35px;
+    padding-top: 35px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  .summary-stats {
+    display: flex;
+    gap: 30px;
+  }
+  .stat-item {
     display: flex;
     flex-direction: column;
+  }
+  .stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
+  .stat-value { font-size: 1.8rem; font-weight: 800; color: var(--accent-3); }
+  .stat-value .unit { font-size: 0.9rem; margin-left: 4px; color: var(--text-muted); }
+
+  .report-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  #loading-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(11,15,26,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 10;
     align-items: center;
-    gap: 12px; /* Reduced gap */
-    position: relative;
-    overflow: hidden;
+    justify-content: center;
+    flex-direction: column;
+    gap: 15px;
+    border-radius: 24px;
   }
-  .device-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.12);
-  }
-  .device-icon {
-    font-size: 2.4rem; /* Reduced from 3.5rem */
-    color: inherit;
-    opacity: 0.9;
-    margin-bottom: 6px;
-  }
-  .device-name {
-    font-size: 1.3rem; /* Reduced from 1.8rem */
-    font-weight: 700;
-    color: inherit;
-    margin: 0;
-  }
-  .device-ip {
-    font-size: 0.95rem; /* Reduced from 1.1rem */
-    color: inherit;
-    opacity: 0.85;
-    font-family: monospace;
-    background: rgba(0,0,0,0.15);
-    padding: 4px 10px;
-    border-radius: 6px;
-  }
-  
-  /* Hide sidebar entirely on the device selection page */
-  .sidebar { 
-    display: none !important; 
-  }
-  .content { 
-    margin-left: 0 !important; 
-  }
-  .burger-btn { 
-    display: none !important; 
-  }
-  
-  @media (max-width: 600px) {
-    .devices-container {
-      padding: 20px 15px;
-    }
-    .devices-header h2 {
-      font-size: 1.8rem;
-    }
-    .devices-header p {
-      font-size: 0.95rem;
-    }
-    .devices-toolbar {
+
+  /* Hide sidebar entirely on selection page */
+  .sidebar { display: none !important; }
+  .content { margin-left: 0 !important; }
+  .burger-btn { display: none !important; }
+
+  @media (max-width: 768px) {
+    .report-summary-panel {
       flex-direction: column;
-      gap: 10px;
+      align-items: flex-start;
     }
-    .devices-toolbar button {
+    .summary-stats {
+      flex-direction: column;
+      gap: 15px;
+    }
+    .report-actions {
       width: 100%;
-      justify-content: center;
     }
-    .device-grid {
-      grid-template-columns: 1fr;
+    .report-actions button {
+      flex: 1;
     }
   }
 </style>
@@ -155,134 +287,282 @@
 {% block content %}
 <div class="devices-container">
   <div class="devices-header">
-    <h2>Select a Device</h2>
-    <p>Please select a device to view its dashboard, gauges, and trends.</p>
+    <h2>Energy Dashboard & Reports</h2>
+    <p>Select a live machine node to view real-time metrics, or generate comprehensive consumption reports using the advanced filters below.</p>
   </div>
   
-  <div class="devices-toolbar">
-    <div class="search-input-wrapper">
-      <i class="fa-solid fa-magnifying-glass"></i>
-      <input type="text" id="device-search" class="search-input" placeholder="Search by name or IP...">
-    </div>
-    <button id="refresh-btn" class="btn btn-secondary" onclick="loadDevices()" title="Refresh" style="padding: 12px 18px; border-radius: var(--radius-lg);">
-      <i class="fa-solid fa-rotate-right"></i>
-    </button>
+  <div class="section-title">
+    <i class="fa-solid fa-microchip"></i>
+    Select Machine Dashboard
   </div>
 
-  <div id="loading" style="font-size: 1.2rem; margin: 40px; color: var(--muted);"><i class="fa-solid fa-circle-notch fa-spin" style="margin-right: 10px;"></i> Loading devices...</div>
+  <div id="loading-devices" style="text-align: center; padding: 40px; color: var(--text-dim);">
+    <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i>
+    <p style="margin-top: 10px;">Initializing nodes...</p>
+  </div>
   
   <div class="device-grid" id="device-grid">
-    <!-- Devices will be injected here -->
+    <!-- Loaded via JS -->
+  </div>
+
+  <div class="section-title">
+    <i class="fa-solid fa-file-invoice-dollar"></i>
+    Advanced Report Generator
+  </div>
+
+  <div class="report-container">
+    <div id="loading-overlay">
+      <i class="fa-solid fa-gear fa-spin fa-2x" style="color: var(--accent);"></i>
+      <span style="font-weight: 600; letter-spacing: 0.05em;">PROCESSING DATA...</span>
+    </div>
+
+    <div class="report-form">
+      <div class="form-group">
+        <label>Date Range</label>
+        <div style="display: flex; gap: 10px;">
+          <input type="date" id="start-date" class="input-control" style="flex: 1;">
+          <input type="date" id="end-date" class="input-control" style="flex: 1;">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Operational Shift</label>
+        <div class="shift-selector">
+          <button class="shift-btn active" data-shift="ALL">ALL</button>
+          <button class="shift-btn" data-shift="A">SH-A</button>
+          <button class="shift-btn" data-shift="B">SH-B</button>
+          <button class="shift-btn" data-shift="C">SH-C</button>
+        </div>
+      </div>
+
+      <div class="form-group" style="grid-column: 1 / -1;">
+        <label>Target Slaves / Nodes</label>
+        <div class="slave-selector" id="slave-selector">
+          <label class="slave-item">
+            <input type="checkbox" id="select-all-slaves" checked>
+            <span>SELECT ALL</span>
+          </label>
+          <!-- Dynamic slave list -->
+        </div>
+      </div>
+    </div>
+
+    <div class="report-summary-panel">
+      <div class="summary-stats">
+        <div class="stat-item">
+          <span class="stat-label">Total Consumption</span>
+          <span class="stat-value" id="summary-total">0.00 <span class="unit">kWh</span></span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Records Found</span>
+          <span class="stat-value" id="summary-count" style="color: var(--accent-2);">0</span>
+        </div>
+      </div>
+      
+      <div class="report-actions">
+        <button class="btn btn-secondary" onclick="updateSummary()" style="padding: 12px 24px;">
+          <i class="fa-solid fa-calculator"></i> Calculate Summary
+        </button>
+        <button class="btn btn-primary" onclick="downloadReport()" style="padding: 12px 24px;">
+          <i class="fa-solid fa-file-csv"></i> Export CSV Report
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    function getColorStyles(name) {
-      const n = (name || '').toLowerCase();
-      if (n.includes('yellow') || n.includes('amber')) return { bg: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)', text: '#fff', raw: '#f59e0b' };
-      if (n.includes('blue')) return { bg: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)', text: '#fff', raw: '#3b82f6' };
-      if (n.includes('green')) return { bg: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)', text: '#fff', raw: '#10b981' };
-      if (n.includes('pink') || n.includes('rose')) return { bg: 'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)', text: '#fff', raw: '#ec4899' };
-      if (n.includes('white') || n.includes('silver')) return { bg: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', text: '#1e293b', raw: '#f8fafc' };
-      if (n.includes('purple') || n.includes('violet')) return { bg: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)', text: '#fff', raw: '#8b5cf6' };
-      if (n.includes('red')) return { bg: 'linear-gradient(135deg, #ef4444 0%, #f87171 100%)', text: '#fff', raw: '#ef4444' };
-      if (n.includes('orange')) return { bg: 'linear-gradient(135deg, #f97316 0%, #fb923c 100%)', text: '#fff', raw: '#f97316' };
-      if (n.includes('teal') || n.includes('cyan')) return { bg: 'linear-gradient(135deg, #14b8a6 0%, #2dd4bf 100%)', text: '#fff', raw: '#14b8a6' };
-      
-      const fallbackStyles = [
-        { bg: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)', text: '#fff', raw: '#f59e0b' },
-        { bg: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)', text: '#fff', raw: '#3b82f6' },
-        { bg: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)', text: '#fff', raw: '#10b981' },
-      ];
-      let hash = 0;
-      for (let i = 0; i < n.length; i++) hash = n.charCodeAt(i) + ((hash << 5) - hash);
-      return fallbackStyles[Math.abs(hash) % fallbackStyles.length];
-    }
-  
-  const cardIcons = ['fa-server', 'fa-microchip', 'fa-network-wired', 'fa-hdd', 'fa-database', 'fa-laptop-code'];
-  
-  document.body.classList.add('no-device');
-  
   let allDevices = [];
+  let selectedShift = 'ALL';
 
-  function renderDevices(devices) {
-    const grid = document.getElementById('device-grid');
-    grid.innerHTML = '';
-    
-    if (!devices || devices.length === 0) {
-      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--muted); padding: 40px; background: var(--surface-2); border-radius: var(--radius-lg); border: 1px dashed var(--border);">No devices found matching your criteria.</div>';
-      return;
-    }
-    
-    devices.forEach((device, index) => {
-      const ip = device.device_ip;
-      const name = device.name;
-      const isActive = device.active;
-      const lastSeen = device.last_seen;
-      const style = getColorStyles(name);
-      const icon = cardIcons[index % cardIcons.length];
-      
-      const card = document.createElement('div');
-      card.className = 'device-card';
-      card.style.setProperty('--card-bg', style.bg);
-      card.style.setProperty('--card-text', style.text);
-      
-      card.innerHTML = `
-        <i class="fa-solid ${icon} device-icon"></i>
-        <h3 class="device-name">${name}</h3>
-        <div class="device-ip"><i class="fa-solid fa-microchip" style="margin-right: 6px; font-size: 0.85em; opacity: 0.7;"></i>ID: ${ip}</div>
-        <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px; align-items: center;">
-          <span class="pill ${isActive ? 'online' : 'offline'}" style="background: ${isActive ? 'rgba(52,211,153,0.2)' : 'rgba(248,113,113,0.2)'}; border-color: rgba(255,255,255,0.3); color: inherit; padding: 4px 12px;">
-            <i class="fa-solid ${isActive ? 'fa-signal' : 'fa-plug-circle-xmark'}" style="margin-right: 4px;"></i> 
-            ${isActive ? 'Active' : 'Offline'}
-          </span>
-          <div style="font-size: 0.75rem; opacity: 0.7;">Last Seen: ${lastSeen}</div>
-        </div>
-      `;
-      
-      card.addEventListener('click', () => {
-        localStorage.setItem('selected_ip', ip);
-        localStorage.setItem('selected_name', name);
-        localStorage.setItem('selected_bg', style.bg);
-        localStorage.setItem('selected_text', style.text);
-        window.location.href = `/dashboard?ip=${encodeURIComponent(ip)}`;
-      });
-      
-      grid.appendChild(card);
-    });
+  // Initialize dates to today
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('start-date').value = today;
+  document.getElementById('end-date').value = today;
+
+  function getColorStyles(name) {
+    const n = (name || '').toLowerCase();
+    if (n.includes('yellow') || n.includes('amber')) return '#f59e0b';
+    if (n.includes('blue')) return '#3b82f6';
+    if (n.includes('green')) return '#10b981';
+    if (n.includes('pink') || n.includes('rose')) return '#ec4899';
+    if (n.includes('purple') || n.includes('violet')) return '#8b5cf6';
+    if (n.includes('red')) return '#ef4444';
+    if (n.includes('orange')) return '#f97316';
+    if (n.includes('teal') || n.includes('cyan')) return '#14b8a6';
+    return '#38bdf8'; // Default blue
   }
 
   async function loadDevices() {
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('device-grid').innerHTML = '';
-    const btnIcon = document.querySelector('#refresh-btn i');
-    if (btnIcon) btnIcon.classList.add('fa-spin');
-    
     try {
-      const response = await fetch('/api/devices');
-      allDevices = await response.json();
-      document.getElementById('loading').style.display = 'none';
-      if (btnIcon) btnIcon.classList.remove('fa-spin');
+      const resp = await fetch('/api/devices');
+      allDevices = await resp.json();
       
-      // trigger search filter
-      const q = document.getElementById('device-search').value.toLowerCase();
-      const filtered = q ? allDevices.filter(d => d.name.toLowerCase().includes(q) || d.device_ip.includes(q)) : allDevices;
-      renderDevices(filtered);
+      renderDeviceGrid();
+      renderSlaveSelector();
+      document.getElementById('loading-devices').style.display = 'none';
       
+      // Auto-preview summary on load
+      updateSummary();
     } catch (e) {
-      document.getElementById('loading').innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Failed to load devices.';
-      if (btnIcon) btnIcon.classList.remove('fa-spin');
       console.error(e);
+      document.getElementById('loading-devices').innerHTML = '<span style="color: var(--danger);">Error loading devices.</span>';
     }
   }
 
-  document.getElementById('device-search').addEventListener('input', (e) => {
-    const q = e.target.value.toLowerCase();
-    const filtered = allDevices.filter(d => d.name.toLowerCase().includes(q) || d.device_ip.includes(q));
-    renderDevices(filtered);
+  function renderDeviceGrid() {
+    const container = document.getElementById('device-grid');
+    container.innerHTML = '';
+    
+    allDevices.forEach(d => {
+      const color = getColorStyles(d.name);
+      const card = document.createElement('div');
+      card.className = 'device-card';
+      card.style.setProperty('--card-color', color);
+      
+      card.innerHTML = `
+        <div class="device-icon-wrapper"><i class="fa-solid fa-bolt"></i></div>
+        <div class="device-info">
+          <h3>${d.name}</h3>
+          <span class="device-id-badge">SLAVE_ID: ${d.device_ip}</span>
+        </div>
+        <div class="device-status">
+          <span class="status-dot ${d.active ? 'online' : 'offline'}"></span>
+          <span>${d.active ? 'LIVE' : 'OFFLINE'}</span>
+          <span style="margin-left: auto; color: var(--text-dim); font-weight: 400; font-size: 0.75rem;">${d.last_seen}</span>
+        </div>
+      `;
+      
+      card.onclick = () => {
+        localStorage.setItem('selected_ip', d.device_ip);
+        localStorage.setItem('selected_name', d.name);
+        window.location.href = `/dashboard?ip=${encodeURIComponent(d.device_ip)}`;
+      };
+      
+      container.appendChild(card);
+    });
+  }
+
+  function renderSlaveSelector() {
+    const selector = document.getElementById('slave-selector');
+    // Keep the "Select All"
+    const selectAll = selector.querySelector('.slave-item');
+    selector.innerHTML = '';
+    selector.appendChild(selectAll);
+    
+    allDevices.forEach(d => {
+      const label = document.createElement('label');
+      label.className = 'slave-item';
+      label.innerHTML = `
+        <input type="checkbox" class="slave-checkbox" value="${d.device_ip}" checked>
+        <span>${d.name}</span>
+      `;
+      selector.appendChild(label);
+    });
+    
+    // Wire up events
+    document.getElementById('select-all-slaves').addEventListener('change', (e) => {
+      document.querySelectorAll('.slave-checkbox').forEach(cb => cb.checked = e.target.checked);
+    });
+  }
+
+  // Shift Toggle
+  document.querySelectorAll('.shift-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedShift = btn.dataset.shift;
+    };
   });
+
+  function getReportFilters() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+    const slaves = Array.from(document.querySelectorAll('.slave-checkbox:checked')).map(cb => {
+        // Try parsing to int as app expects list of IDs
+        const val = cb.value;
+        return isNaN(val) ? val : parseInt(val);
+    });
+    
+    return {
+      start_date: startDate,
+      end_date: endDate,
+      shift: selectedShift,
+      slaves: slaves
+    };
+  }
+
+  async function updateSummary() {
+    const filters = getReportFilters();
+    if (!filters.start_date || !filters.end_date) return;
+    
+    document.getElementById('loading-overlay').style.display = 'flex';
+    
+    try {
+      const resp = await fetch('/api/report/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(filters)
+      });
+      const data = await resp.json();
+      
+      document.getElementById('summary-total').innerHTML = `${data.total_energy.toLocaleString()} <span class="unit">kWh</span>`;
+      document.getElementById('summary-count').innerText = data.count.toLocaleString();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      document.getElementById('loading-overlay').style.display = 'none';
+    }
+  }
+
+  async function downloadReport() {
+    const filters = getReportFilters();
+    if (filters.slaves.length === 0) {
+      showToast('Selection Required', 'Please select at least one slave to export.', 'warn');
+      return;
+    }
+    
+    document.getElementById('loading-overlay').style.display = 'flex';
+    
+    try {
+      const resp = await fetch('/api/export/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(filters)
+      });
+      
+      if (resp.ok) {
+        const blob = await resp.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `energy_report_${filters.start_date}_to_${filters.end_date}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast('Success', 'Report downloaded successfully.', 'success');
+      } else {
+        const err = await resp.json();
+        showToast('Export Failed', err.error || 'No data found for selected filters.', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('System Error', 'Failed to generate report.', 'error');
+    } finally {
+      document.getElementById('loading-overlay').style.display = 'none';
+    }
+  }
+
+  // Re-use notification system from base.html if available, or simple fallback
+  function showToast(title, msg, type) {
+    if (window.pushToast) {
+       window.pushToast(title, msg, type);
+    } else {
+       alert(`${title}: ${msg}`);
+    }
+  }
 
   loadDevices();
 </script>

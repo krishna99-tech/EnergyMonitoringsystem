@@ -699,6 +699,7 @@ def fetch_filtered(req_data):
     end       = req_data.get("end_date")
     device_ip = req_data.get("ip")
     slave_id  = req_data.get("slave")
+    slave_ids = req_data.get("slaves")  # Can be a list of IDs
 
     columns = [
         "slave_id", "energy", "power_factor", "frequency",
@@ -715,10 +716,16 @@ def fetch_filtered(req_data):
     if shift != "ALL":
         query += " AND shift = ?"
         params.append(shift)
+    
     if device_ip:
         query += " AND (device_ip = ? OR slave_id = ?)"
         params.extend([device_ip, device_ip])
-    if slave_id:
+        
+    if slave_ids and isinstance(slave_ids, list):
+        placeholders = ', '.join(['?'] * len(slave_ids))
+        query += f" AND slave_id IN ({placeholders})"
+        params.extend(slave_ids)
+    elif slave_id:
         try:
             query += " AND slave_id = ?"
             params.append(int(slave_id))
@@ -731,6 +738,47 @@ def fetch_filtered(req_data):
         rows = conn.execute(query, params).fetchall()
 
     return [{col: row[col] for col in columns} for row in rows]
+
+
+@app.route("/api/report/summary", methods=["POST"])
+def report_summary():
+    data = fetch_filtered(request.get_json(silent=True))
+    if not data:
+        return jsonify({"total_energy": 0, "shift_a": 0, "shift_b": 0, "shift_c": 0, "count": 0})
+    
+    # Sort by timestamp to calculate energy diff
+    sorted_data = sorted(data, key=lambda x: str(x.get("timestamp")))
+    total_cons = 0.0
+    shift_cons = {"A": 0.0, "B": 0.0, "C": 0.0}
+
+    # Group by slave_id to calculate consumption per slave correctly
+    by_slave = {}
+    for r in sorted_data:
+        sid = r.get("slave_id")
+        if sid not in by_slave: by_slave[sid] = []
+        by_slave[sid].append(r)
+
+    for sid, rows in by_slave.items():
+        if len(rows) >= 2:
+            for i in range(1, len(rows)):
+                prev = rows[i-1]
+                curr = rows[i]
+                p_val = to_float(prev.get("energy"))
+                c_val = to_float(curr.get("energy"))
+                diff = c_val - p_val
+                if diff > 0:
+                    total_cons += diff
+                    s = curr.get("shift")
+                    if s in shift_cons:
+                        shift_cons[s] += diff
+
+    return jsonify({
+        "total_energy": round(total_cons, 2),
+        "shift_a": round(shift_cons["A"], 2),
+        "shift_b": round(shift_cons["B"], 2),
+        "shift_c": round(shift_cons["C"], 2),
+        "count": len(data)
+    })
 
 
 @app.route("/api/export/preview", methods=["POST"])
@@ -760,26 +808,35 @@ def export_csv():
 
     csv_rows = [as_csv_row_upper(r, mapping) for r in data]
 
-    # Shift-wise energy consumption summary
-    sorted_data = sorted(data, key=lambda x: str(get_any(x, "TIMESTAMP", "timestamp")))
+    # Shift-wise energy consumption summary (per slave)
     total_cons = 0.0
     shift_cons = {"A": 0.0, "B": 0.0, "C": 0.0}
 
-    if len(sorted_data) >= 2:
-        for i in range(1, len(sorted_data)):
-            prev = sorted_data[i - 1]
-            curr = sorted_data[i]
-            p_val = to_float(get_any(prev, "ENERGY", "energy"))
-            c_val = to_float(get_any(curr, "ENERGY", "energy"))
-            diff = c_val - p_val
-            if diff > 0:
-                total_cons += diff
-                s = get_any(curr, "SHIFT", "shift")
-                if s in shift_cons:
-                    shift_cons[s] += diff
+    # Group by slave_id for accurate diffs
+    by_slave_export = {}
+    for r in data:
+        sid = get_any(r, "SLAVE_ID", "slave_id")
+        if sid not in by_slave_export: by_slave_export[sid] = []
+        by_slave_export[sid].append(r)
+
+    for sid, slave_rows in by_slave_export.items():
+        # Sort each slave's data by timestamp
+        slave_rows.sort(key=lambda x: str(get_any(x, "TIMESTAMP", "timestamp")))
+        if len(slave_rows) >= 2:
+            for i in range(1, len(slave_rows)):
+                prev = slave_rows[i - 1]
+                curr = slave_rows[i]
+                p_val = to_float(get_any(prev, "ENERGY", "energy"))
+                c_val = to_float(get_any(curr, "ENERGY", "energy"))
+                diff = c_val - p_val
+                if diff > 0:
+                    total_cons += diff
+                    s = get_any(curr, "SHIFT", "shift")
+                    if s in shift_cons:
+                        shift_cons[s] += diff
 
     csv_rows.append({})
-    csv_rows.append({"TIMESTAMP": "SUMMARY",    "SHIFT": "TOTAL", "ENERGY": f"{round(total_cons, 2)} kWh"})
+    csv_rows.append({"TIMESTAMP": "SUMMARY",    "SHIFT": "TOTAL CONSUMPTION", "ENERGY": f"{round(total_cons, 2)} kWh"})
     csv_rows.append({"TIMESTAMP": "SHIFT WISE", "SHIFT": "A",     "ENERGY": f"{round(shift_cons['A'], 2)} kWh"})
     csv_rows.append({"TIMESTAMP": "",           "SHIFT": "B",     "ENERGY": f"{round(shift_cons['B'], 2)} kWh"})
     csv_rows.append({"TIMESTAMP": "",           "SHIFT": "C",     "ENERGY": f"{round(shift_cons['C'], 2)} kWh"})
