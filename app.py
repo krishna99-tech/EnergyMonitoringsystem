@@ -806,51 +806,74 @@ def export_csv():
     except:
         pass
 
-    csv_rows = [as_csv_row_upper(r, mapping) for r in data]
-
-    # Shift-wise energy consumption summary (per slave)
-    total_cons = 0.0
-    shift_cons = {"A": 0.0, "B": 0.0, "C": 0.0}
-
-    # Group by slave_id for accurate diffs
-    by_slave_export = {}
+    # Group by slave for sectioning
+    by_slave_sections = {}
     for r in data:
         sid = get_any(r, "SLAVE_ID", "slave_id")
-        if sid not in by_slave_export: by_slave_export[sid] = []
-        by_slave_export[sid].append(r)
+        if sid not in by_slave_sections: by_slave_sections[sid] = []
+        by_slave_sections[sid].append(r)
 
-    for sid, slave_rows in by_slave_export.items():
-        # Sort each slave's data by timestamp
+    final_csv_rows = []
+    total_global_cons = 0.0
+    global_shift_cons = {"A": 0.0, "B": 0.0, "C": 0.0}
+
+    # Iterate through each slave section
+    for sid, slave_rows in by_slave_sections.items():
+        # Sort by timestamp
         slave_rows.sort(key=lambda x: str(get_any(x, "TIMESTAMP", "timestamp")))
-        if len(slave_rows) >= 2:
-            for i in range(1, len(slave_rows)):
-                prev = slave_rows[i - 1]
+        
+        sid_str = str(sid) if sid is not None else ""
+        device_name = mapping.get(sid_str) or "Slave " + sid_str if sid_str else "Legacy Device"
+        
+        # Section Header
+        final_csv_rows.append({"TIMESTAMP": f"--- SECTION: {device_name.upper()} ---"})
+        
+        # Individual rows
+        slave_total = 0.0
+        slave_shifts = {"A": 0.0, "B": 0.0, "C": 0.0}
+        
+        for i, r in enumerate(slave_rows):
+            final_csv_rows.append(as_csv_row_upper(r, mapping))
+            
+            # Calculate consumption diff if possible
+            if i > 0:
+                prev = slave_rows[i-1]
                 curr = slave_rows[i]
                 p_val = to_float(get_any(prev, "ENERGY", "energy"))
                 c_val = to_float(get_any(curr, "ENERGY", "energy"))
                 diff = c_val - p_val
                 if diff > 0:
-                    total_cons += diff
+                    slave_total += diff
+                    total_global_cons += diff
                     s = get_any(curr, "SHIFT", "shift")
-                    if s in shift_cons:
-                        shift_cons[s] += diff
+                    if s in slave_shifts:
+                        slave_shifts[s] += diff
+                        global_shift_cons[s] += diff
 
-    csv_rows.append({})
-    csv_rows.append({"TIMESTAMP": "SUMMARY",    "SHIFT": "TOTAL CONSUMPTION", "ENERGY": f"{round(total_cons, 2)} kWh"})
-    csv_rows.append({"TIMESTAMP": "SHIFT WISE", "SHIFT": "A",     "ENERGY": f"{round(shift_cons['A'], 2)} kWh"})
-    csv_rows.append({"TIMESTAMP": "",           "SHIFT": "B",     "ENERGY": f"{round(shift_cons['B'], 2)} kWh"})
-    csv_rows.append({"TIMESTAMP": "",           "SHIFT": "C",     "ENERGY": f"{round(shift_cons['C'], 2)} kWh"})
+        # Per-Slave Summary
+        final_csv_rows.append({"TIMESTAMP": f"{device_name} SUMMARY", "SHIFT": "TOTAL", "ENERGY": f"{round(slave_total, 2)} kWh"})
+        final_csv_rows.append({"TIMESTAMP": f"{device_name} SHIFT-A", "ENERGY": f"{round(slave_shifts['A'], 2)} kWh"})
+        final_csv_rows.append({"TIMESTAMP": f"{device_name} SHIFT-B", "ENERGY": f"{round(slave_shifts['B'], 2)} kWh"})
+        final_csv_rows.append({"TIMESTAMP": f"{device_name} SHIFT-C", "ENERGY": f"{round(slave_shifts['C'], 2)} kWh"})
+        final_csv_rows.append({}) # Empty separator
+
+    # Global Summary
+    final_csv_rows.append({"TIMESTAMP": "===================="})
+    final_csv_rows.append({"TIMESTAMP": "GLOBAL SUMMARY",    "SHIFT": "TOTAL", "ENERGY": f"{round(total_global_cons, 2)} kWh"})
+    final_csv_rows.append({"TIMESTAMP": "SHIFT WISE TOTAL", "SHIFT": "A",     "ENERGY": f"{round(global_shift_cons['A'], 2)} kWh"})
+    final_csv_rows.append({"TIMESTAMP": "",           "SHIFT": "B",     "ENERGY": f"{round(global_shift_cons['B'], 2)} kWh"})
+    final_csv_rows.append({"TIMESTAMP": "",           "SHIFT": "C",     "ENERGY": f"{round(global_shift_cons['C'], 2)} kWh"})
 
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=CSV_EXPORT_COLUMNS, extrasaction='ignore')
     writer.writeheader()
-    writer.writerows(csv_rows)
+    writer.writerows(final_csv_rows)
 
     return send_file(
         io.BytesIO(output.getvalue().encode("utf-8")),
         mimetype="text/csv",
         as_attachment=True,
-        download_name="energy_report.csv"
+        download_name="energy_report_by_slave.csv"
     )
 
 
