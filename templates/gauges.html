@@ -7,6 +7,40 @@
 {% block head %}
   <script src="/static/js/main.js"></script>
   <style>
+    /* ── Section Title & Subtitle ── */
+    .dashboard-section-header {
+      margin-bottom: 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .section-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-transform: uppercase;
+    }
+    .section-title i {
+      color: var(--accent);
+      font-size: 1.15rem;
+    }
+    .section-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
     .gauges-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -112,6 +146,17 @@
 
 {% block content %}
   <div class="container container--compact">
+    <!-- Section Title & Subtitle Header -->
+    <div class="dashboard-section-header">
+      <div class="section-title-wrap">
+        <div class="section-title">
+          <i class="fa-solid fa-gauge"></i>
+          <span>Analog Electrical Gauges & Dials</span>
+        </div>
+        <div class="section-subtitle">Real-time dynamic radial dials with live digital LCD readouts for voltage, current, frequency, and power factor</div>
+      </div>
+    </div>
+
     <div class="gauges-grid">
       <div class="gauge-wrapper">
         <div class="status-indicator" aria-hidden="true"></div>

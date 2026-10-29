@@ -1,42 +1,816 @@
 {% extends "base.html" %}
 
-{% block title %}Reports - ELFORGE Energy Monitor{% endblock %}
+{% block title %}Shift-Wise Energy Consumption Dashboard & Reports - ELFORGE{% endblock %}
+
+{% block header_title %}ELFORGE ENERGY MONITORING SYSTEM{% endblock %}
 
 {% block head %}
-<style>
-  .placeholder-card {
-    background: var(--card-bg, var(--card));
-    border-radius: 20px;
-    padding: 60px 20px;
-    text-align: center;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-    margin: 40px auto;
-    max-width: 800px;
-  }
-  .placeholder-icon {
-    font-size: 4rem;
-    color: var(--accent);
-    margin-bottom: 20px;
-  }
-  .placeholder-title {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 10px;
-  }
-  .placeholder-desc {
-    font-size: 1.1rem;
-    color: rgba(255, 255, 255, 0.6);
-  }
-  html[data-theme="light"] .placeholder-desc {
-    color: rgba(0, 0, 0, 0.6);
-  }
-</style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/all.min.css') }}" />
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <style>
+    .reports-page-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 10px 0 40px;
+    }
+    
+    /* ── Header Title & Subtitle ── */
+    .page-hero {
+      margin-bottom: 24px;
+    }
+    .page-hero h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .page-hero h2 i {
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.12);
+      padding: 10px;
+      border-radius: 12px;
+      font-size: 1.5rem;
+    }
+    .page-hero p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* ── Filter & Configuration Bar ── */
+    .filter-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+    }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .filter-group label {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filter-group label i {
+      color: var(--accent);
+    }
+    .filter-group select, .filter-group input {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      min-height: 44px;
+    }
+    .filter-group select:focus, .filter-group input:focus {
+      border-color: var(--accent);
+      background: var(--surface-3);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.15);
+    }
+    .filter-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+    .quick-presets {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn-preset {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-preset:hover, .btn-preset.active {
+      background: var(--surface-3);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* ── Executive KPI Cards ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+    .kpi-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+      border-color: var(--border-glow);
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--kpi-color, var(--accent));
+    }
+    .kpi-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .kpi-card-title {
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+    .kpi-card-icon {
+      font-size: 1.25rem;
+      color: var(--kpi-color, var(--accent));
+    }
+    .kpi-card-value {
+      font-size: 2.1rem;
+      font-weight: 800;
+      font-family: 'Space Grotesk', sans-serif;
+      color: var(--text);
+    }
+    .kpi-card-unit {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-left: 4px;
+    }
+    .kpi-card-footer {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .kpi-shift-a { --kpi-color: #38bdf8; }
+    .kpi-shift-b { --kpi-color: #fbbf24; }
+    .kpi-shift-c { --kpi-color: #a78bfa; }
+    .kpi-total { 
+      --kpi-color: #34d399;
+      background: linear-gradient(145deg, rgba(52, 211, 153, 0.08) 0%, var(--surface) 100%);
+      border-color: rgba(52, 211, 153, 0.3);
+    }
+
+    /* ── Visual Charts Grid ── */
+    .analytics-charts-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 992px) {
+      .analytics-charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .analytics-chart-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+    }
+    .chart-box-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .chart-box-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .chart-box-title i {
+      color: var(--accent);
+    }
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      height: 290px;
+    }
+
+    /* ── Shift Breakdown Table ── */
+    .table-section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+      margin-bottom: 30px;
+    }
+    .table-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .table-responsive {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .analytics-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    .analytics-table th {
+      background: var(--surface-2);
+      padding: 14px 16px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .analytics-table td {
+      padding: 14px 16px;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .analytics-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .analytics-table tfoot tr {
+      background: var(--surface-2);
+      font-weight: 800;
+      border-top: 2px solid var(--accent);
+    }
+    .analytics-table tfoot td {
+      padding: 16px;
+    }
+
+    .export-btn-group {
+      display: flex;
+      gap: 10px;
+    }
+  </style>
 {% endblock %}
 
 {% block content %}
-<div class="placeholder-card">
-  <i class="fa-solid fa-clipboard-list placeholder-icon"></i>
-  <h2 class="placeholder-title">Reports Engine</h2>
-  <p class="placeholder-desc">This module is under development. Future enhancements will allow generating and exporting detailed PDF and Excel analytical reports here.</p>
+<div class="reports-page-container">
+  
+  <div class="page-hero">
+    <h2><i class="fa-solid fa-chart-pie"></i> Shift-Wise & Total Energy Consumption Analytics</h2>
+    <p>Comprehensive shift-level breakdown (Shift A, Shift B, Shift C), consumption trends, and analytical reports across all machines.</p>
+  </div>
+
+  <!-- Filter & Configuration Panel -->
+  <div class="filter-panel">
+    <div class="filter-grid">
+      <div class="filter-group">
+        <label><i class="fa-solid fa-microchip"></i> Machine Node</label>
+        <select id="report-device">
+          <option value="">All Machines (Aggregate)</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label><i class="fa-solid fa-clock-rotate-left"></i> Shift Selection</label>
+        <select id="report-shift">
+          <option value="ALL">All Shifts (A + B + C)</option>
+          <option value="A">Shift A (06:30 - 14:30)</option>
+          <option value="B">Shift B (14:30 - 22:30)</option>
+          <option value="C">Shift C (22:30 - 06:30)</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label><i class="fa-solid fa-calendar-day"></i> Start Date</label>
+        <input type="date" id="report-start" />
+      </div>
+
+      <div class="filter-group">
+        <label><i class="fa-solid fa-calendar-day"></i> End Date</label>
+        <input type="date" id="report-end" />
+      </div>
+    </div>
+
+    <div class="filter-actions">
+      <div class="quick-presets">
+        <button class="btn-preset active" data-preset="all">Full History</button>
+        <button class="btn-preset" data-preset="today">Today</button>
+        <button class="btn-preset" data-preset="7d">Last 7 Days</button>
+        <button class="btn-preset" data-preset="30d">Last 30 Days</button>
+      </div>
+
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <button class="btn btn-primary" id="btn-run-analytics">
+          <i class="fa-solid fa-bolt"></i> Calculate Consumption
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Executive Shift KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card kpi-shift-a">
+      <div class="kpi-card-head">
+        <span class="kpi-card-title">Shift A Consumption</span>
+        <i class="fa-solid fa-sun kpi-card-icon"></i>
+      </div>
+      <div class="kpi-card-value"><span id="kpi-a">0.00</span><span class="kpi-card-unit">kWh</span></div>
+      <div class="kpi-card-footer">Morning Shift (06:30 — 14:30)</div>
+    </div>
+
+    <div class="kpi-card kpi-shift-b">
+      <div class="kpi-card-head">
+        <span class="kpi-card-title">Shift B Consumption</span>
+        <i class="fa-solid fa-cloud-sun kpi-card-icon"></i>
+      </div>
+      <div class="kpi-card-value"><span id="kpi-b">0.00</span><span class="kpi-card-unit">kWh</span></div>
+      <div class="kpi-card-footer">Evening Shift (14:30 — 22:30)</div>
+    </div>
+
+    <div class="kpi-card kpi-shift-c">
+      <div class="kpi-card-head">
+        <span class="kpi-card-title">Shift C Consumption</span>
+        <i class="fa-solid fa-moon kpi-card-icon"></i>
+      </div>
+      <div class="kpi-card-value"><span id="kpi-c">0.00</span><span class="kpi-card-unit">kWh</span></div>
+      <div class="kpi-card-footer">Night Shift (22:30 — 06:30)</div>
+    </div>
+
+    <div class="kpi-card kpi-total">
+      <div class="kpi-card-head">
+        <span class="kpi-card-title">Total Energy Consumed</span>
+        <i class="fa-solid fa-chart-pie kpi-card-icon"></i>
+      </div>
+      <div class="kpi-card-value"><span id="kpi-total">0.00</span><span class="kpi-card-unit">kWh</span></div>
+      <div class="kpi-card-footer" id="kpi-period-label">Selected Range Total Consumption</div>
+    </div>
+  </div>
+
+  <!-- Visual Graphs: Daily Shift Stacked Bar & Share Doughnut -->
+  <div class="analytics-charts-grid">
+    <div class="analytics-chart-box">
+      <div class="chart-box-title-row">
+        <span class="chart-box-title"><i class="fa-solid fa-chart-column"></i> Shift-Wise Energy Comparison</span>
+        <span class="badge" id="chart-scope-badge">All Shifts</span>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="reportsShiftBarChart"></canvas>
+      </div>
+    </div>
+
+    <div class="analytics-chart-box">
+      <div class="chart-box-title-row">
+        <span class="chart-box-title"><i class="fa-solid fa-chart-pie"></i> Shift Consumption Share</span>
+        <span class="badge">Ratio</span>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="reportsShiftDoughnutChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detailed Shift Breakdown Table -->
+  <div class="table-section-card">
+    <div class="table-section-header">
+      <div class="section-title">
+        <i class="fa-solid fa-table-list"></i>
+        <span>Daily Shift-Wise Energy Breakdown</span>
+      </div>
+      <div class="export-btn-group">
+        <button class="btn btn-secondary" id="btn-export-csv">
+          <i class="fa-solid fa-file-csv"></i> Export CSV
+        </button>
+        <button class="btn btn-secondary" id="btn-export-excel">
+          <i class="fa-solid fa-file-excel"></i> Export Excel
+        </button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="analytics-table" id="analytics-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Target Device</th>
+            <th>Shift A (kWh)</th>
+            <th>Shift B (kWh)</th>
+            <th>Shift C (kWh)</th>
+            <th>Total Energy (kWh)</th>
+            <th>Shift A Share</th>
+            <th>Shift B Share</th>
+            <th>Shift C Share</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 24px;">Click 'Calculate Consumption' to load breakdown.</td></tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2">TOTAL PERIOD CONSUMPTION</td>
+            <td id="tbl-foot-a" style="color: #38bdf8;">0.00 kWh</td>
+            <td id="tbl-foot-b" style="color: #fbbf24;">0.00 kWh</td>
+            <td id="tbl-foot-c" style="color: #a78bfa;">0.00 kWh</td>
+            <td id="tbl-foot-total" style="color: #34d399; font-size: 1.05rem;">0.00 kWh</td>
+            <td colspan="3" id="tbl-foot-summary" style="color: var(--text-muted); font-size: 0.8rem;">Ready</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let barChart = null;
+  let doughnutChart = null;
+  let devicesList = [];
+
+  function formatNum(val, digits = 2) {
+    const num = Number(val);
+    if (!isFinite(num)) return '0.00';
+    return num.toFixed(digits);
+  }
+
+  // Load devices for the selector
+  async function loadDevicesSelector() {
+    try {
+      const resp = await fetch('/api/devices');
+      if (resp.ok) {
+        devicesList = await resp.json();
+        const sel = document.getElementById('report-device');
+        sel.innerHTML = '<option value="">All Machines (Aggregate)</option>';
+        devicesList.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.device_ip;
+          opt.innerText = `${d.name} (Slave ${d.device_ip})`;
+          sel.appendChild(opt);
+        });
+
+        // If previously selected device in localStorage, set it
+        const savedIp = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
+        if (savedIp) {
+          sel.value = savedIp;
+        }
+      }
+    } catch(e) {}
+  }
+
+  function initOrUpdateBarChart(dailyBreakdown, shiftA, shiftB, shiftC) {
+    const ctx = document.getElementById('reportsShiftBarChart');
+    if (!ctx) return;
+
+    let labels = [];
+    let dsA = [];
+    let dsB = [];
+    let dsC = [];
+
+    if (dailyBreakdown && dailyBreakdown.length > 0) {
+      labels = dailyBreakdown.map(d => d.date);
+      dsA = dailyBreakdown.map(d => d.A);
+      dsB = dailyBreakdown.map(d => d.B);
+      dsC = dailyBreakdown.map(d => d.C);
+    } else {
+      labels = ['Total Period'];
+      dsA = [shiftA];
+      dsB = [shiftB];
+      dsC = [shiftC];
+    }
+
+    if (barChart) {
+      barChart.data.labels = labels;
+      barChart.data.datasets[0].data = dsA;
+      barChart.data.datasets[1].data = dsB;
+      barChart.data.datasets[2].data = dsC;
+      barChart.update();
+      return;
+    }
+
+    barChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Shift A (06:30-14:30)',
+            data: dsA,
+            backgroundColor: 'rgba(56, 189, 248, 0.7)',
+            borderColor: '#38bdf8',
+            borderWidth: 1.5,
+            borderRadius: 6
+          },
+          {
+            label: 'Shift B (14:30-22:30)',
+            data: dsB,
+            backgroundColor: 'rgba(251, 191, 36, 0.7)',
+            borderColor: '#fbbf24',
+            borderWidth: 1.5,
+            borderRadius: 6
+          },
+          {
+            label: 'Shift C (22:30-06:30)',
+            data: dsC,
+            backgroundColor: 'rgba(167, 139, 250, 0.7)',
+            borderColor: '#a78bfa',
+            borderWidth: 1.5,
+            borderRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: '#94a3b8', font: { weight: '600' } }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} kWh`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#94a3b8' }
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: {
+              color: '#94a3b8',
+              callback: (v) => v + ' kWh'
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function initOrUpdateDoughnutChart(shiftA, shiftB, shiftC) {
+    const ctx = document.getElementById('reportsShiftDoughnutChart');
+    if (!ctx) return;
+
+    const dataVals = [shiftA, shiftB, shiftC];
+    const total = shiftA + shiftB + shiftC;
+
+    if (doughnutChart) {
+      doughnutChart.data.datasets[0].data = dataVals;
+      doughnutChart.update();
+      return;
+    }
+
+    doughnutChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Shift A', 'Shift B', 'Shift C'],
+        datasets: [{
+          data: dataVals,
+          backgroundColor: ['#38bdf8', '#fbbf24', '#a78bfa'],
+          borderColor: '#111827',
+          borderWidth: 3,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#94a3b8', font: { weight: 'bold' }, padding: 16 }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const val = ctx.parsed;
+                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                return `${ctx.label}: ${val} kWh (${pct}%)`;
+              }
+            }
+          }
+        },
+        cutout: '65%'
+      }
+    });
+  }
+
+  function renderBreakdownTable(dailyList, devName, grandTotal, aTotal, bTotal, cTotal) {
+    const tbody = document.querySelector('#analytics-table tbody');
+    tbody.innerHTML = '';
+
+    if (!dailyList || !dailyList.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 24px;">No records found for this period.</td></tr>';
+      return;
+    }
+
+    dailyList.forEach(item => {
+      const dayTotal = item.total || (item.A + item.B + item.C);
+      const pctA = dayTotal > 0 ? ((item.A / dayTotal) * 100).toFixed(1) + '%' : '0%';
+      const pctB = dayTotal > 0 ? ((item.B / dayTotal) * 100).toFixed(1) + '%' : '0%';
+      const pctC = dayTotal > 0 ? ((item.C / dayTotal) * 100).toFixed(1) + '%' : '0%';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${item.date}</strong></td>
+        <td>${devName}</td>
+        <td style="color: #38bdf8; font-weight: 700;">${formatNum(item.A)}</td>
+        <td style="color: #fbbf24; font-weight: 700;">${formatNum(item.B)}</td>
+        <td style="color: #a78bfa; font-weight: 700;">${formatNum(item.C)}</td>
+        <td style="color: #34d399; font-weight: 800;">${formatNum(dayTotal)}</td>
+        <td><span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">${pctA}</span></td>
+        <td><span class="badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24;">${pctB}</span></td>
+        <td><span class="badge" style="background: rgba(167, 139, 250, 0.15); color: #a78bfa;">${pctC}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('tbl-foot-a').innerText = `${formatNum(aTotal)} kWh`;
+    document.getElementById('tbl-foot-b').innerText = `${formatNum(bTotal)} kWh`;
+    document.getElementById('tbl-foot-c').innerText = `${formatNum(cTotal)} kWh`;
+    document.getElementById('tbl-foot-total').innerText = `${formatNum(grandTotal)} kWh`;
+    document.getElementById('tbl-foot-summary').innerText = `Across ${dailyList.length} date entries`;
+  }
+
+  async function calculateConsumption() {
+    const ip = document.getElementById('report-device').value;
+    const shift = document.getElementById('report-shift').value;
+    const start = document.getElementById('report-start').value;
+    const end = document.getElementById('report-end').value;
+
+    const params = new URLSearchParams();
+    if (ip) params.append('ip', ip);
+    if (shift) params.append('shift', shift);
+    if (start) params.append('start_date', start);
+    if (end) params.append('end_date', end);
+
+    try {
+      const resp = await fetch(`/api/energy/shifts?${params.toString()}`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+
+      if (data.ok) {
+        // Sync dates if they were blank
+        if (!document.getElementById('report-start').value && data.start_date) {
+          document.getElementById('report-start').value = data.start_date;
+        }
+        if (!document.getElementById('report-end').value && data.end_date) {
+          document.getElementById('report-end').value = data.end_date;
+        }
+
+        // Update KPI Cards
+        document.getElementById('kpi-a').innerText = formatNum(data.shift_a);
+        document.getElementById('kpi-b').innerText = formatNum(data.shift_b);
+        document.getElementById('kpi-c').innerText = formatNum(data.shift_c);
+        document.getElementById('kpi-total').innerText = formatNum(data.total_energy);
+
+        document.getElementById('chart-scope-badge').innerText = data.device_name || 'All Nodes';
+
+        // Update Charts
+        initOrUpdateBarChart(data.daily_breakdown, data.shift_a, data.shift_b, data.shift_c);
+        initOrUpdateDoughnutChart(data.shift_a, data.shift_b, data.shift_c);
+
+        // Update Breakdown Table
+        renderBreakdownTable(data.daily_breakdown, data.device_name, data.total_energy, data.shift_a, data.shift_b, data.shift_c);
+      }
+    } catch(err) {
+      console.error('Error fetching analytics:', err);
+    }
+  }
+
+  document.getElementById('btn-run-analytics').addEventListener('click', calculateConsumption);
+  document.getElementById('report-device').addEventListener('change', calculateConsumption);
+  document.getElementById('report-shift').addEventListener('change', calculateConsumption);
+
+  // Quick preset buttons
+  document.querySelectorAll('.btn-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const preset = btn.dataset.preset;
+      const today = new Date();
+      const endStr = today.toISOString().slice(0, 10);
+
+      if (preset === 'today') {
+        document.getElementById('report-start').value = endStr;
+        document.getElementById('report-end').value = endStr;
+      } else if (preset === '7d') {
+        const d = new Date(today);
+        d.setDate(d.getDate() - 7);
+        document.getElementById('report-start').value = d.toISOString().slice(0, 10);
+        document.getElementById('report-end').value = endStr;
+      } else if (preset === '30d') {
+        const d = new Date(today);
+        d.setDate(d.getDate() - 30);
+        document.getElementById('report-start').value = d.toISOString().slice(0, 10);
+        document.getElementById('report-end').value = endStr;
+      } else {
+        // Full history
+        document.getElementById('report-start').value = '';
+        document.getElementById('report-end').value = '';
+      }
+      calculateConsumption();
+    });
+  });
+
+  // Export handlers
+  async function triggerExport(url, defaultName) {
+    const ip = document.getElementById('report-device').value;
+    const shift = document.getElementById('report-shift').value;
+    const start = document.getElementById('report-start').value;
+    const end = document.getElementById('report-end').value;
+
+    const payload = {
+      ip, shift, start_date: start, end_date: end
+    };
+
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        alert('No data available to export.');
+        return;
+      }
+      const blob = await resp.blob();
+      const a = document.createElement('a');
+      a.href = window.URL.createObjectURL(blob);
+      a.download = defaultName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch(e) {
+      alert('Export failed: ' + e);
+    }
+  }
+
+  document.getElementById('btn-export-csv').addEventListener('click', () => {
+    triggerExport('/api/export/csv', 'shift_energy_report.csv');
+  });
+
+  document.getElementById('btn-export-excel').addEventListener('click', () => {
+    triggerExport('/api/export/excel', 'shift_energy_report.xlsx');
+  });
+
+  // Initialization
+  (async function() {
+    await loadDevicesSelector();
+    await calculateConsumption();
+  })();
+</script>
 {% endblock %}

@@ -1,10 +1,16 @@
-# Energy Monitoring System - Energy Calculation Guide
+# Energy Monitoring System - Energy Calculation & Handover Guide
 
-This document explains the methodology used by the **ELFORGE Energy Monitoring System** to calculate energy consumption and perform shift-wise reporting.
+This document explains the methodology used by the **ELFORGE Energy Monitoring System** to calculate energy consumption, perform shift-wise reporting, and operate the interactive dashboard.
+
+> For complete documentation including API endpoints and architecture, see [UPDATE_README.md](file:///c:/Users/vakav/virtualpy/elforge_updating/UPDATE_README.md).
+
+---
 
 ## 1. Overview
 
-The system tracks **Cumulative Energy (kWh)** directly from the **MFM384 Energy Meter**. This value is a running total that does not reset daily. To determine how much energy was used during a specific timeframe (like a shift), the system must calculate the **increase** between readings.
+The system tracks **Cumulative Energy (kWh)** directly from the **MFM384 Energy Meter**. This value is a running total that does not reset daily. To determine how much energy was used during a specific timeframe (like a shift), the system calculates the **increase** between readings.
+
+---
 
 ## 2. Calculation Methodology
 
@@ -16,38 +22,45 @@ The system uses a **Delta Accumulation** approach to ensure accuracy even if the
 2. **Calculate Delta**: For every consecutive pair of readings:
    $$\text{Delta} = \text{Reading}_{current} - \text{Reading}_{previous}$$
 3. **Filter Anomalies**:
-   - If **Delta > 0**: The energy increased (power was consumed). This delta is added to the running total.
-   - If **Delta ≤ 0**: This is ignored. (This prevents errors if the meter replaces its internal battery/counter or if a reading is skipped).
+   - If **$0 < \text{Delta} < 10000$**: The energy increased (power was consumed). This delta is added to the running total and attributed to the current reading's shift.
+   - If **$\text{Delta} \le 0$ or $\text{Delta} \ge 10000$**: This is ignored to prevent corrupted totals from meter resets or communication glitches.
 4. **Final Result**: The sum of all valid Deltas is the total energy consumed during that period.
+
+---
 
 ## 3. Shift Breakdown
 
 Energy consumption is automatically attributed to a shift based on the **Timestamp** of the reading.
 
-| Shift       | Start Time       | End Time         |
-| :---------- | :--------------- | :--------------- |
-| **Shift A** | 06:00 (06:00 AM) | 13:59 (01:59 PM) |
-| **Shift B** | 14:00 (02:00 PM) | 21:59 (09:59 PM) |
-| **Shift C** | 22:00 (10:00 PM) | 05:59 (05:59 AM) |
+| Shift | Start Time | End Time |
+| :--- | :--- | :--- |
+| **Shift A** (Morning) | 06:30 (06:30 AM) | 14:29:59 (02:29 PM) |
+| **Shift B** (Evening) | 14:30 (02:30 PM) | 22:29:59 (10:29 PM) |
+| **Shift C** (Night) | 22:30 (10:30 PM) | 06:29:59 (06:29 AM) |
 
 > [!NOTE]
-> Consumption is attributed to the shift in which the **End** of the consumption interval occurred. For example, if energy is consumed between 05:59 and 06:01, that energy will be counted towards **Shift A**.
-
-## 4. Where to find Calculations
-
-You can view these calculations in two main areas of the application:
-
-### Dashboard Results Table
-
-At the bottom of the data table, a **Table Footer** summarizes the current view:
-
-- **Total Period Consumption**: Sum of all energy usage across all visible shifts in the table.
-- **Shift A/B/C Consumption**: Individual totals specifically for each workforce shift.
-
-### CSV Export (Reports)
-
-When you click **Download CSV**, the generated file will contain a **SUMMARY** section at the bottom. This allows management to quickly see the total kWh and shift-wide efficiency without manually calculating from the raw data rows.
+> Consumption is attributed to the shift in which the **End** of the consumption interval occurred. For example, if energy is consumed between 06:29 and 06:31, that energy will be counted towards **Shift A**.
 
 ---
 
-_Designed & Developed by Vel Tech University, Chennai_
+## 4. Where to Find Calculations in the Application
+
+### 1. Live Dashboard (`/dashboard`)
+* **Shift Consumption Cards**: Dedicated KPI cards for Shift A, Shift B, Shift C, and Total Consumed kWh.
+* **Active Shift Indicator**: Displays the current active shift badge based on real-time server time.
+* **Shift Distribution Chart**: Visual bar chart comparing Shift A, B, and C consumption.
+* **Consumption Timeline Chart**: Interactive trend graph showing interval consumption over time.
+* **Table Summary Footer**: At the bottom of the data table, the `<tfoot>` summarizes Total Period Consumption and individual shift totals.
+
+### 2. Shift Analytics & Reports Hub (`/reports`)
+* Comprehensive shift-level reporting dashboard with customizable date ranges and quick presets.
+* **Daily Shift Stacked Bar Chart** and **Shift Share Doughnut Chart**.
+* Full date-wise breakdown table with shift totals and % shares.
+* Direct **CSV** and **Excel** export downloads.
+
+### 3. CSV & Excel Export
+* Detailed reports sectioned by machine with per-slave shift breakdowns and global shift summaries.
+
+---
+
+_Designed & Developed by Vel Tech University, Chennai & Advanced Energy Monitoring Systems_

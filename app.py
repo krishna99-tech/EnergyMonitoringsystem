@@ -14,8 +14,8 @@ import os
 # ================= APP CONFIG =================
 app = Flask(__name__)
 DB_PATH = "energy.db"
-UDP_PORT = 50003
-webport = 5001
+UDP_PORT = 50004
+webport = 5002
 UDP_DEBUG = True
 
 # ================= SAFE FLOAT CONVERTER =================
@@ -105,10 +105,14 @@ def get_db_connection():
 
 # ================ SHIFT CALCULATION =================
 def get_shift_from_time(dt):
-    h = dt.hour
-    if 6 <= h < 14:
+    # Shifts:
+    # Shift A: 06:30 - 14:30 (390m to 870m)
+    # Shift B: 14:30 - 22:30 (870m to 1350m)
+    # Shift C: 22:30 - 06:30
+    mins = dt.hour * 60 + dt.minute
+    if 390 <= mins < 870:
         return "A"
-    elif 14 <= h < 22:
+    elif 870 <= mins < 1350:
         return "B"
     else:
         return "C"
@@ -174,8 +178,25 @@ SLAVE_KEYS = {
     "slave4": 4,
 }
 
+DEVICE_HEARTBEATS = {}
+
 def parse_and_insert(payload, device_ip):
     inserted = []
+
+    # Heartbeat packet handler
+    if payload.get("type") == "heartbeat":
+        sid = str(payload.get("slave_id") or payload.get("device_ip") or device_ip)
+        now_dt = datetime.now()
+        DEVICE_HEARTBEATS[sid] = {
+            "last_seen": now_dt,
+            "rssi": payload.get("rssi"),
+            "uptime_sec": payload.get("uptime_sec"),
+            "modbus_ok": payload.get("modbus_ok") is True or str(payload.get("modbus_ok")).lower() == "true",
+            "seq": payload.get("seq")
+        }
+        if UDP_DEBUG:
+            print(f"[UDP Heartbeat] Device {sid} alive | RSSI: {payload.get('rssi')} dBm | Modbus: {payload.get('modbus_ok')}")
+        return [(sid, "HEARTBEAT")]
 
     # Check if any top-level key matches a known slave label
     is_nested = any(k in payload for k in SLAVE_KEYS)
@@ -190,11 +211,12 @@ def parse_and_insert(payload, device_ip):
                     if UDP_DEBUG:
                         print(f"[UDP] Inserted slave_id={slave_id} shift={shift}")
     else:
-        # Legacy flat packet — treat as slave_id=None (or 1 if you prefer)
-        shift = insert_energy_row(payload, device_ip, slave_id=None)
-        inserted.append((None, shift))
+        # Flat packet — check if slave_id is explicitly passed in payload
+        sid = payload.get("slave_id")
+        shift = insert_energy_row(payload, device_ip, slave_id=sid)
+        inserted.append((sid, shift))
         if UDP_DEBUG:
-            print(f"[UDP] Inserted legacy flat row shift={shift}")
+            print(f"[UDP] Inserted flat row slave_id={sid} shift={shift}")
 
     return inserted
 
@@ -305,6 +327,71 @@ def settings():
 
 DEVICE_MAPPING_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "devices.json")
 
+def get_device_health(ident, conn, now):
+    """Unified online/offline calculation for both /api/devices and /api/device/status."""
+    search_param = ident
+    try:
+        search_param = int(ident)
+    except:
+        pass
+    query = "SELECT timestamp, energy, power, vr, ir, power_factor FROM energy_data WHERE (device_ip = ? OR slave_id = ?) ORDER BY timestamp DESC LIMIT 1"
+    row = conn.execute(query, (ident, search_param)).fetchone()
+    db_last_seen = row["timestamp"] if row else "Never"
+
+    hb = DEVICE_HEARTBEATS.get(str(ident))
+    is_online = False
+    modbus_ok = True
+    last_seen_str = db_last_seen
+    seconds_ago = None
+
+    if hb:
+        hb_diff = (now - hb["last_seen"]).total_seconds()
+        if hb_diff <= 35:
+            is_online = True
+            modbus_ok = hb.get("modbus_ok", True)
+            last_seen_str = hb["last_seen"].strftime("%Y-%m-%d %H:%M:%S")
+            seconds_ago = int(hb_diff)
+        else:
+            last_seen_str = hb["last_seen"].strftime("%Y-%m-%d %H:%M:%S")
+            seconds_ago = int(hb_diff)
+
+    # Fallback to DB packet received recently (within 45s)
+    if not is_online and row and db_last_seen != "Never":
+        try:
+            ls_dt = datetime.strptime(db_last_seen, "%Y-%m-%d %H:%M:%S")
+            diff = (now - ls_dt).total_seconds()
+            if -30 < diff <= 45:
+                is_online = True
+                last_seen_str = db_last_seen
+                seconds_ago = int(diff)
+        except:
+            pass
+
+    return {
+        "online": is_online,
+        "modbus_ok": modbus_ok,
+        "last_seen": last_seen_str,
+        "seconds_ago": seconds_ago,
+        "status": "ONLINE" if is_online else "OFFLINE",
+        "message": "Device is Online" if is_online else "Device is Offline",
+        "rssi": hb.get("rssi") if hb else None,
+        "uptime_sec": hb.get("uptime_sec") if hb else None,
+        "energy": row["energy"] if row else None,
+        "power": row["power"] if row else None,
+        "voltage": row["vr"] if row else None,
+        "current": row["ir"] if row else None,
+        "pf": row["power_factor"] if row else None
+    }
+
+
+@app.route("/api/device/status/<device_id>")
+def api_device_status(device_id):
+    now = datetime.now()
+    with get_db_connection() as conn:
+        health = get_device_health(device_id, conn, now)
+    return jsonify(health)
+
+
 @app.route("/api/devices")
 def api_devices():
     mapping = {}
@@ -319,37 +406,22 @@ def api_devices():
     now = datetime.now()
     with get_db_connection() as conn:
         for ident, name in mapping.items():
-            # Try to convert ident to int if it looks like one for better DB matching
-            search_param = ident
-            try:
-                search_param = int(ident)
-            except:
-                pass
-
-            # Check for latest data matching this ID (either as device_ip or slave_id)
-            query = "SELECT timestamp FROM energy_data WHERE (device_ip = ? OR slave_id = ?) ORDER BY timestamp DESC LIMIT 1"
-            row = conn.execute(query, (ident, search_param)).fetchone()
-            
-            is_active = False
-            last_seen = "Never"
-            if row:
-                last_seen_str = row["timestamp"]
-                last_seen = last_seen_str
-                try:
-                    ls_dt = datetime.strptime(last_seen_str, "%Y-%m-%d %H:%M:%S")
-                    diff = (now - ls_dt).total_seconds()
-                    # More lenient: Active if seen in last 10 mins or if timestamp is in slight future (drift)
-                    if -300 < diff < 600: 
-                        is_active = True
-                except:
-                    pass
-            
+            health = get_device_health(ident, conn, now)
             devices.append({
-                "device_ip": ident, 
+                "device_ip": str(ident), 
                 "name": name, 
-                "active": is_active,
-                "last_seen": last_seen,
-                "diff_sec": (now - ls_dt).total_seconds() if row and 'ls_dt' in locals() else None
+                "active": health["online"],
+                "last_seen": health["last_seen"],
+                "status": health["status"],
+                "message": health["message"],
+                "diff_sec": health["seconds_ago"],
+                "rssi": health["rssi"],
+                "modbus_ok": health["modbus_ok"],
+                "energy": health.get("energy"),
+                "power": health.get("power"),
+                "voltage": health.get("voltage"),
+                "current": health.get("current"),
+                "pf": health.get("pf")
             })
     return jsonify(devices)
 
@@ -692,7 +764,31 @@ def api_trend(trend_type):
 
 
 # ================= EXPORT HELPERS =================
-def fetch_filtered(req_data):
+def get_db_date_bounds(device_ip=None, slave_id=None):
+    """Returns (min_date_str, max_date_str) available in energy_data."""
+    with get_db_connection() as conn:
+        q = "SELECT MIN(DATE(timestamp)) as min_dt, MAX(DATE(timestamp)) as max_dt FROM energy_data"
+        params = []
+        where = []
+        if device_ip:
+            where.append("(device_ip = ? OR slave_id = ?)")
+            params.extend([device_ip, device_ip])
+        elif slave_id:
+            try:
+                where.append("slave_id = ?")
+                params.append(int(slave_id))
+            except ValueError:
+                pass
+        if where:
+            q += " WHERE " + " AND ".join(where)
+        row = conn.execute(q, params).fetchone()
+        if row and row["max_dt"]:
+            return row["min_dt"] or row["max_dt"], row["max_dt"]
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    return today_str, today_str
+
+
+def fetch_filtered(req_data, allow_default_dates=True):
     req_data  = req_data or {}
     shift     = req_data.get("shift", "ALL")
     start     = req_data.get("start_date")
@@ -700,6 +796,11 @@ def fetch_filtered(req_data):
     device_ip = req_data.get("ip")
     slave_id  = req_data.get("slave")
     slave_ids = req_data.get("slaves")  # Can be a list of IDs
+
+    if (not start or not end) and allow_default_dates:
+        min_dt, max_dt = get_db_date_bounds(device_ip, slave_id)
+        start = start or min_dt
+        end = end or max_dt
 
     columns = [
         "slave_id", "energy", "power_factor", "frequency",
@@ -740,18 +841,140 @@ def fetch_filtered(req_data):
     return [{col: row[col] for col in columns} for row in rows]
 
 
-@app.route("/api/report/summary", methods=["POST"])
+@app.route("/api/energy/shifts", methods=["GET", "POST"])
+def api_energy_shifts():
+    """Returns shift-wise cumulative energy, daily breakdowns, and chart timeline."""
+    if request.method == "POST":
+        req_data = request.get_json(silent=True) or {}
+    else:
+        req_data = request.args.to_dict()
+
+    shift_filter = req_data.get("shift", "ALL")
+    device_ip = req_data.get("ip")
+    slave_id = req_data.get("slave")
+    start = req_data.get("start_date")
+    end = req_data.get("end_date")
+
+    min_dt, max_dt = get_db_date_bounds(device_ip, slave_id)
+    if not start:
+        start = min_dt or datetime.now().strftime("%Y-%m-%d")
+    if not end:
+        end = max_dt or datetime.now().strftime("%Y-%m-%d")
+
+    req_data["start_date"] = start
+    req_data["end_date"] = end
+
+    # Fetch with shift='ALL' to capture full distribution across shifts
+    query_req = dict(req_data)
+    query_req["shift"] = "ALL"
+    data = fetch_filtered(query_req, allow_default_dates=True)
+
+    sorted_data = sorted(data, key=lambda x: str(x.get("timestamp") or ""))
+
+    total_cons = 0.0
+    shift_cons = {"A": 0.0, "B": 0.0, "C": 0.0}
+    daily_shifts = {}
+    timeline = []
+
+    by_slave = {}
+    for r in sorted_data:
+        sid = r.get("slave_id")
+        if sid not in by_slave:
+            by_slave[sid] = []
+        by_slave[sid].append(r)
+
+    for sid, rows in by_slave.items():
+        if len(rows) >= 2:
+            for i in range(1, len(rows)):
+                prev = rows[i - 1]
+                curr = rows[i]
+                p_val = to_float(prev.get("energy"))
+                c_val = to_float(curr.get("energy"))
+                diff = c_val - p_val
+                if 0 < diff < 10000:
+                    s = curr.get("shift") or "A"
+                    ts = curr.get("timestamp") or ""
+                    dt = ts[:10] if len(ts) >= 10 else start
+                    
+                    total_cons += diff
+                    if s in shift_cons:
+                        shift_cons[s] += diff
+
+                    if dt not in daily_shifts:
+                        daily_shifts[dt] = {"date": dt, "A": 0.0, "B": 0.0, "C": 0.0, "total": 0.0}
+                    if s in daily_shifts[dt]:
+                        daily_shifts[dt][s] = round(daily_shifts[dt][s] + diff, 3)
+                    daily_shifts[dt]["total"] = round(daily_shifts[dt]["total"] + diff, 3)
+
+                    timeline.append({
+                        "timestamp": ts,
+                        "shift": s,
+                        "diff": round(diff, 3),
+                        "power": to_float(curr.get("power")),
+                        "energy": c_val
+                    })
+
+    mapping = {}
+    try:
+        if os.path.exists(DEVICE_MAPPING_FILE):
+            with open(DEVICE_MAPPING_FILE, "r") as f:
+                mapping = json.load(f)
+    except Exception:
+        pass
+    
+    device_name = "All Machines"
+    if device_ip:
+        device_name = mapping.get(str(device_ip)) or f"Slave {device_ip}"
+
+    now = datetime.now()
+    current_shift = get_shift_from_time(now)
+    daily_list = [daily_shifts[k] for k in sorted(daily_shifts.keys())]
+
+    reported_total = total_cons
+    if shift_filter in ["A", "B", "C"]:
+        reported_total = shift_cons[shift_filter]
+
+    if len(timeline) > 300:
+        step = max(1, len(timeline) // 300)
+        timeline = timeline[::step]
+
+    latest_reading = sorted_data[-1] if sorted_data else {}
+
+    return jsonify({
+        "ok": True,
+        "device_ip": device_ip,
+        "device_name": device_name,
+        "current_shift": current_shift,
+        "start_date": start,
+        "end_date": end,
+        "filter_shift": shift_filter,
+        "total_energy": round(reported_total, 2),
+        "shift_a": round(shift_cons["A"], 2),
+        "shift_b": round(shift_cons["B"], 2),
+        "shift_c": round(shift_cons["C"], 2),
+        "count": len(sorted_data),
+        "daily_breakdown": daily_list,
+        "timeline": timeline,
+        "latest_reading": latest_reading,
+        "bounds": {"min_date": min_dt, "max_date": max_dt}
+    })
+
+
+@app.route("/api/report/summary", methods=["GET", "POST"])
 def report_summary():
-    data = fetch_filtered(request.get_json(silent=True))
+    if request.method == "POST":
+        req_data = request.get_json(silent=True) or {}
+    else:
+        req_data = request.args.to_dict()
+
+    data = fetch_filtered(req_data, allow_default_dates=True)
     if not data:
         return jsonify({"total_energy": 0, "shift_a": 0, "shift_b": 0, "shift_c": 0, "count": 0})
     
-    # Sort by timestamp to calculate energy diff
     sorted_data = sorted(data, key=lambda x: str(x.get("timestamp")))
     total_cons = 0.0
     shift_cons = {"A": 0.0, "B": 0.0, "C": 0.0}
 
-    # Group by slave_id to calculate consumption per slave correctly
     by_slave = {}
     for r in sorted_data:
         sid = r.get("slave_id")
@@ -766,7 +989,7 @@ def report_summary():
                 p_val = to_float(prev.get("energy"))
                 c_val = to_float(curr.get("energy"))
                 diff = c_val - p_val
-                if diff > 0:
+                if 0 < diff < 10000:
                     total_cons += diff
                     s = curr.get("shift")
                     if s in shift_cons:

@@ -51,75 +51,216 @@
   /* ── Device Grid ───────────────────────────────────────── */
   .device-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 25px;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 24px;
     margin-bottom: 60px;
   }
   .device-card {
-    border: 1px solid var(--border);
+    border: 1.5px solid var(--border);
     border-radius: 20px;
-    padding: 24px;
+    padding: 24px 22px 20px;
+    min-height: 205px;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-    background: linear-gradient(145deg, var(--surface) 0%, var(--card-bg, var(--surface)) 100%);
+    justify-content: space-between;
+    background: var(--surface);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   }
-  .device-card::before {
-    content: '';
-    position: absolute; top: 0; left: 0; width: 100%; height: 6px;
-    background: var(--card-color, var(--accent));
-    opacity: 0.8;
+  html[data-theme="dark"] .device-card {
+    background: linear-gradient(160deg, #131b2e 0%, #0d1322 100%);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   }
+  html[data-theme="light"] .device-card {
+    background: linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+
   .device-card:hover {
-    transform: translateY(-8px);
+    transform: translateY(-6px);
     border-color: var(--card-color, var(--accent));
-    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
-    background: linear-gradient(145deg, var(--surface) 0%, var(--card-bg-hover, var(--surface)) 100%);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12), 0 0 24px var(--card-glow, transparent);
+  }
+  html[data-theme="dark"] .device-card:hover {
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 0 28px var(--card-glow, transparent);
+  }
+
+
+  /* Card Top Row */
+  .card-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
   .device-icon-wrapper {
-    width: 50px;
-    height: 50px;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.05);
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-    color: var(--card-color, var(--accent));
+    font-size: 1.35rem;
+    flex-shrink: 0;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
-  .device-info h3 {
-    font-size: 1.4rem;
-    font-weight: 700;
-    margin-bottom: 4px;
+  .device-card:hover .device-icon-wrapper {
+    transform: scale(1.1) rotate(-4deg);
   }
   .device-id-badge {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     background: var(--surface-2);
-    padding: 4px 10px;
-    border-radius: 6px;
+    border: 1.5px solid var(--border);
     color: var(--text-muted);
+    letter-spacing: 0.04em;
+    transition: all 0.2s ease;
   }
-  .device-status {
+  .device-card:hover .device-id-badge {
+    border-color: var(--card-color);
+  }
+  .device-id-badge .badge-label {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    opacity: 0.75;
+  }
+  .device-id-badge .badge-num {
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: var(--card-color);
+  }
+
+  /* Middle Body */
+  .device-body {
+    margin: 16px 0 16px;
+  }
+  .device-title-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
-    margin-top: 10px;
-    font-size: 0.85rem;
-    font-weight: 600;
   }
-  .status-dot {
-    width: 8px;
-    height: 8px;
+  .device-body h3 {
+    font-size: 1.32rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--text); /* Always crisp & readable in light & dark! */
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .device-color-dot {
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
   }
-  .status-dot.online { background: var(--success); box-shadow: 0 0 10px var(--success); }
-  .status-dot.offline { background: var(--danger); }
+  .device-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+  }
+  .open-arrow {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    transition: all 0.25s ease;
+    transform: translateX(0);
+  }
+  .device-card:hover .open-arrow {
+    color: var(--card-color);
+    transform: translateX(4px);
+  }
+
+  /* Divider */
+  .device-divider {
+    height: 1px;
+    width: 100%;
+    background: var(--border);
+    margin-bottom: 14px;
+    opacity: 0.8;
+  }
+
+  /* Bottom Row */
+  .device-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    transition: all 0.2s ease;
+  }
+  .status-pill.online {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #059669;
+  }
+  html[data-theme="dark"] .status-pill.online {
+    color: #34d399;
+  }
+  .status-pill.offline {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #dc2626;
+  }
+  html[data-theme="dark"] .status-pill.offline {
+    color: #f87171;
+  }
+
+  .status-pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .status-pill.online .status-pill-dot {
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: pulse-dot 1.8s infinite;
+  }
+  .status-pill.offline .status-pill-dot {
+    background: #ef4444;
+  }
+
+  .telemetry-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .telemetry-time i {
+    font-size: 0.72rem;
+    opacity: 0.75;
+  }
 
   /* ── Report Generator ────────────────────────────────────── */
   .report-container {
@@ -324,19 +465,38 @@
     border-radius: 24px;
   }
 
-  /* Hide sidebar entirely on selection page */
-  .sidebar { display: none !important; }
-  .content { margin-left: 0 !important; }
-  .burger-btn { display: none !important; }
+  /* Completely hide sidebar and burger button on selection page */
+  .sidebar, #sidebar, .sidebar-overlay, #sidebar-overlay { display: none !important; }
+  .content { margin-left: 0 !important; width: 100% !important; }
+  .burger-btn, #burger-btn { display: none !important; }
 
   @media (max-width: 768px) {
+    .devices-container {
+      padding: 18px 8px 30px;
+    }
+    .devices-header h2 {
+      font-size: 1.85rem;
+      margin-bottom: 8px;
+    }
+    .devices-header p {
+      font-size: 0.92rem;
+      margin-bottom: 20px;
+    }
+    .device-grid {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    .section-title {
+      font-size: 1.2rem;
+      margin: 25px 0 15px;
+    }
     .report-summary-panel {
       flex-direction: column;
       align-items: flex-start;
     }
     .summary-stats {
       flex-direction: column;
-      gap: 15px;
+      gap: 12px;
     }
     .report-actions {
       width: 100%;
@@ -421,10 +581,22 @@
       </div>
 
       <div class="report-summary-panel">
-        <div class="summary-stats">
-          <div class="stat-item" style="text-align: center;">
-            <span class="stat-label" id="consumption-label">Total Shift Consumption</span>
-            <span class="stat-value" id="summary-total">0.00 <span class="unit">kWh</span></span>
+        <div class="summary-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+          <div class="stat-item" style="text-align: center; background: rgba(56,189,248,0.08); padding: 10px; border-radius: 12px; border: 1px solid rgba(56,189,248,0.2);">
+            <span class="stat-label" style="font-size: 0.7rem; color: #38bdf8; font-weight: 700;">Shift A</span>
+            <span class="stat-value" id="summary-shift-a" style="font-size: 1.15rem; font-weight: 800;">0.00 <span class="unit" style="font-size: 0.7rem;">kWh</span></span>
+          </div>
+          <div class="stat-item" style="text-align: center; background: rgba(251,191,36,0.08); padding: 10px; border-radius: 12px; border: 1px solid rgba(251,191,36,0.2);">
+            <span class="stat-label" style="font-size: 0.7rem; color: #fbbf24; font-weight: 700;">Shift B</span>
+            <span class="stat-value" id="summary-shift-b" style="font-size: 1.15rem; font-weight: 800;">0.00 <span class="unit" style="font-size: 0.7rem;">kWh</span></span>
+          </div>
+          <div class="stat-item" style="text-align: center; background: rgba(167,139,250,0.08); padding: 10px; border-radius: 12px; border: 1px solid rgba(167,139,250,0.2);">
+            <span class="stat-label" style="font-size: 0.7rem; color: #a78bfa; font-weight: 700;">Shift C</span>
+            <span class="stat-value" id="summary-shift-c" style="font-size: 1.15rem; font-weight: 800;">0.00 <span class="unit" style="font-size: 0.7rem;">kWh</span></span>
+          </div>
+          <div class="stat-item" style="text-align: center; background: rgba(52,211,153,0.08); padding: 10px; border-radius: 12px; border: 1px solid rgba(52,211,153,0.2);">
+            <span class="stat-label" id="consumption-label" style="font-size: 0.7rem; color: #34d399; font-weight: 700;">Total</span>
+            <span class="stat-value" id="summary-total" style="font-size: 1.15rem; font-weight: 800;">0.00 <span class="unit" style="font-size: 0.7rem;">kWh</span></span>
           </div>
         </div>
         
@@ -457,17 +629,91 @@
   document.getElementById('start-date').value = today;
   document.getElementById('end-date').value = today;
 
-  function getColorStyles(name) {
+  function getLineCardStyles(name) {
     const n = (name || '').toLowerCase();
-    if (n.includes('yellow') || n.includes('amber')) return '#f59e0b';
-    if (n.includes('blue')) return '#3b82f6';
-    if (n.includes('green')) return '#10b981';
-    if (n.includes('pink') || n.includes('rose')) return '#ec4899';
-    if (n.includes('purple') || n.includes('violet')) return '#8b5cf6';
-    if (n.includes('red')) return '#ef4444';
-    if (n.includes('orange')) return '#f97316';
-    if (n.includes('teal') || n.includes('cyan')) return '#14b8a6';
-    return '#38bdf8'; // Default blue
+    
+    // 1. YELLOW LINE: Rich Vibrant Amber / Gold
+    if (n.includes('yellow') || n.includes('amber')) {
+      return {
+        color: '#d97706',
+        glow: 'rgba(245, 158, 11, 0.4)',
+        iconBg: 'rgba(245, 158, 11, 0.12)',
+        iconBorder: 'rgba(245, 158, 11, 0.35)',
+        badgeBorder: 'rgba(245, 158, 11, 0.45)'
+      };
+    }
+    // 2. BLUE LINE: Royal Sky Blue
+    if (n.includes('blue')) {
+      return {
+        color: '#0284c7',
+        glow: 'rgba(2, 132, 199, 0.4)',
+        iconBg: 'rgba(2, 132, 199, 0.12)',
+        iconBorder: 'rgba(2, 132, 199, 0.35)',
+        badgeBorder: 'rgba(2, 132, 199, 0.45)'
+      };
+    }
+    // 3. RED LINE: Crimson Scarlet
+    if (n.includes('red')) {
+      return {
+        color: '#dc2626',
+        glow: 'rgba(220, 38, 38, 0.4)',
+        iconBg: 'rgba(220, 38, 38, 0.12)',
+        iconBorder: 'rgba(220, 38, 38, 0.35)',
+        badgeBorder: 'rgba(220, 38, 38, 0.45)'
+      };
+    }
+    // 4. GREEN LINE: Emerald Mint
+    if (n.includes('green')) {
+      return {
+        color: '#059669',
+        glow: 'rgba(5, 150, 105, 0.4)',
+        iconBg: 'rgba(5, 150, 105, 0.12)',
+        iconBorder: 'rgba(5, 150, 105, 0.35)',
+        badgeBorder: 'rgba(5, 150, 105, 0.45)'
+      };
+    }
+    // 5. WHITE LINE: Premium Platinum Slate (Ultra legible on both Light and Dark)
+    if (n.includes('white')) {
+      return {
+        color: '#475569',
+        glow: 'rgba(100, 116, 139, 0.35)',
+        iconBg: 'rgba(100, 116, 139, 0.12)',
+        iconBorder: 'rgba(100, 116, 139, 0.35)',
+        badgeBorder: 'rgba(100, 116, 139, 0.45)'
+      };
+    }
+    // 6. BLACK LINE: Obsidian Violet
+    if (n.includes('black')) {
+      return {
+        color: '#7c3aed',
+        glow: 'rgba(124, 58, 237, 0.4)',
+        iconBg: 'rgba(124, 58, 237, 0.12)',
+        iconBorder: 'rgba(124, 58, 237, 0.35)',
+        badgeBorder: 'rgba(124, 58, 237, 0.45)'
+      };
+    }
+    // 7. PINK LINE: Electric Rose
+    if (n.includes('pink') || n.includes('rose')) {
+      return {
+        color: '#db2777',
+        glow: 'rgba(219, 39, 119, 0.4)',
+        iconBg: 'rgba(219, 39, 119, 0.12)',
+        iconBorder: 'rgba(219, 39, 119, 0.35)',
+        badgeBorder: 'rgba(219, 39, 119, 0.45)'
+      };
+    }
+    // Default
+    return {
+      color: '#0284c7',
+      glow: 'rgba(2, 132, 199, 0.4)',
+      iconBg: 'rgba(2, 132, 199, 0.12)',
+      iconBorder: 'rgba(2, 132, 199, 0.35)',
+      badgeBorder: 'rgba(2, 132, 199, 0.45)'
+    };
+  }
+
+  function getColorStyles(name) {
+    return getLineCardStyles(name).color;
   }
 
   async function loadDevices() {
@@ -492,25 +738,49 @@
     container.innerHTML = '';
     
     allDevices.forEach(d => {
-      const color = getColorStyles(d.name);
+      const st = getLineCardStyles(d.name);
       const card = document.createElement('div');
       card.className = 'device-card';
       
-      // Set thematic colors for the "filled" look
-      card.style.setProperty('--card-color', color);
-      card.style.setProperty('--card-bg', color + '15'); 
-      card.style.setProperty('--card-bg-hover', color + '2a');
+      card.style.setProperty('--card-color', st.color);
+      card.style.setProperty('--card-glow', st.glow);
       
       card.innerHTML = `
-        <div class="device-icon-wrapper" style="background: ${color}1a;"><i class="fa-solid fa-bolt"></i></div>
-        <div class="device-info">
-          <h3>${d.name}</h3>
-          <span class="device-id-badge">SLAVE_ID: ${d.device_ip}</span>
+        <div class="card-header-row">
+          <div class="device-icon-wrapper" style="background: ${st.iconBg}; color: ${st.color}; border: 1.5px solid ${st.iconBorder};">
+            <i class="fa-solid fa-bolt"></i>
+          </div>
+          <div class="device-id-badge" style="border-color: ${st.badgeBorder};">
+            <span class="badge-label">SLAVE</span>
+            <span class="badge-num" style="color: ${st.color};">#${d.device_ip}</span>
+          </div>
         </div>
-        <div class="device-status">
-          <span class="status-dot ${d.active ? 'online' : 'offline'}"></span>
-          <span>${d.active ? 'LIVE' : 'OFFLINE'}</span>
-          <span style="margin-left: auto; color: var(--text-dim); font-weight: 400; font-size: 0.75rem;">${d.last_seen}</span>
+
+        <div class="device-body">
+          <div class="device-title-row">
+            <h3>
+              <span class="device-color-dot" style="background: ${st.color}; box-shadow: 0 0 10px ${st.glow};"></span>
+              <span>${d.name}</span>
+            </h3>
+            <i class="fa-solid fa-arrow-right open-arrow"></i>
+          </div>
+          <div class="device-desc">
+            <i class="fa-solid fa-industry" style="font-size: 0.72rem; opacity: 0.7;"></i>
+            <span>3-Phase Energy Feeder</span>
+          </div>
+        </div>
+
+        <div class="device-divider"></div>
+
+        <div class="device-footer">
+          <div class="status-pill ${d.active ? 'online' : 'offline'}">
+            <span class="status-pill-dot"></span>
+            <span>${d.active ? 'Device is Online' : 'Device is Offline'}</span>
+          </div>
+          <div class="telemetry-time" title="Last telemetry packet received">
+            <i class="fa-regular fa-clock"></i>
+            <span>${d.last_seen || 'Never'}</span>
+          </div>
         </div>
       `;
       
@@ -588,7 +858,12 @@
       });
       const data = await resp.json();
       
-      document.getElementById('summary-total').innerHTML = `${data.total_energy.toLocaleString()} <span class="unit">kWh</span>`;
+      document.getElementById('summary-total').innerHTML = `${(data.total_energy || 0).toLocaleString()} <span class="unit">kWh</span>`;
+      if (document.getElementById('summary-shift-a')) {
+        document.getElementById('summary-shift-a').innerHTML = `${(data.shift_a || 0).toLocaleString()} <span class="unit">kWh</span>`;
+        document.getElementById('summary-shift-b').innerHTML = `${(data.shift_b || 0).toLocaleString()} <span class="unit">kWh</span>`;
+        document.getElementById('summary-shift-c').innerHTML = `${(data.shift_c || 0).toLocaleString()} <span class="unit">kWh</span>`;
+      }
       
       // Update label based on shift
       const label = document.getElementById('consumption-label');
@@ -665,5 +940,6 @@
   }
 
   loadDevices();
+  setInterval(loadDevices, 4000); // Live poll devices status every 4s matching dashboard
 </script>
 {% endblock %}

@@ -7,6 +7,40 @@
 {% block head %}
   <script src="/static/js/main.js"></script>
   <style>
+    /* ── Section Title & Subtitle ── */
+    .dashboard-section-header {
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .section-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-transform: uppercase;
+    }
+    .section-title i {
+      color: var(--accent);
+      font-size: 1.15rem;
+    }
+    .section-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
     .trend-controls {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -152,6 +186,17 @@
 
 {% block content %}
   <div class="container">
+    <!-- Page Section Title & Subtitle Header -->
+    <div class="dashboard-section-header">
+      <div class="section-title-wrap">
+        <div class="section-title">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Electrical Parameter Trends & Historical Charts</span>
+        </div>
+        <div class="section-subtitle">Multi-parameter time series graphs for energy consumption, voltages, currents, power factor, and frequency over time</div>
+      </div>
+    </div>
+
     <div class="trend-controls">
       <div class="trend-control">
         <label for="trend-shift">Shift</label>
@@ -185,6 +230,16 @@
     </div>
 
     <div class="status" id="trend-status">Waiting for data.</div>
+
+    <div class="dashboard-section-header" style="margin-top: 24px; margin-bottom: 14px;">
+      <div class="section-title-wrap">
+        <div class="section-title" style="font-size: 1rem;">
+          <i class="fa-solid fa-wave-square"></i>
+          <span>Multi-Parameter Time Series Waveforms</span>
+        </div>
+        <div class="section-subtitle">Synchronized telemetry trend graphs across selected shift and timeframe intervals</div>
+      </div>
+    </div>
 
     <div class="chart-grid">
       <div class="chart-card">
@@ -585,13 +640,36 @@
       const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
       if (ip) params.append('ip', ip);
 
-      const resp = await fetch(`/api/raw?${params.toString()}`);
+      let resp = await fetch(`/api/raw?${params.toString()}`);
       if (!resp.ok) {
         trendStatus.innerText = 'Failed to load trend data.';
         isLoading = false;
         return;
       }
-      const rows = await resp.json();
+      let rows = await resp.json();
+      
+      // Auto-fallback: if 0 rows returned for last24/initial range, query DB bounds to display latest data
+      if (rows.length === 0 && rangeMode === 'last24') {
+        try {
+          const shiftMetaResp = await fetch(`/api/energy/shifts?ip=${encodeURIComponent(ip || '')}`);
+          if (shiftMetaResp.ok) {
+            const meta = await shiftMetaResp.json();
+            if (meta.bounds && meta.bounds.max_date) {
+              startDate = meta.bounds.min_date || meta.bounds.max_date;
+              endDate = meta.bounds.max_date;
+              document.getElementById('trend-start').value = startDate;
+              document.getElementById('trend-end').value = endDate;
+              const retryParams = new URLSearchParams({ shift, start_date: startDate, end_date: endDate, limit: String(limit) });
+              if (ip) retryParams.append('ip', ip);
+              const retryResp = await fetch(`/api/raw?${retryParams.toString()}`);
+              if (retryResp.ok) {
+                rows = await retryResp.json();
+              }
+            }
+          }
+        } catch(e) {}
+      }
+
       if (token !== loadToken) {
         return;
       }

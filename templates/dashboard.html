@@ -6,176 +6,814 @@
 
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/all.min.css') }}" />
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   <style>
-    
+    /* ── Shift Summary Cards ── */
+    .shift-summary-section {
+      margin-bottom: 24px;
+    }
+    /* ── Section Header & Subtitle Components ── */
+    .dashboard-section-header {
+      margin-top: 28px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .section-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .section-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      text-transform: uppercase;
+    }
+    .section-title i {
+      color: var(--accent);
+      font-size: 1.05rem;
+    }
+    .section-subtitle {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    .active-shift-badge {
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .active-shift-badge .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+    .shift-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .shift-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+    .shift-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      border-color: var(--border-glow);
+    }
+    .shift-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--card-accent, var(--accent));
+    }
+    .shift-card .sc-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .shift-card .sc-label {
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+    .shift-card .sc-icon {
+      font-size: 1.2rem;
+      color: var(--card-accent, var(--accent));
+      opacity: 0.9;
+    }
+    .shift-card .sc-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    .shift-card .sc-unit {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-left: 4px;
+    }
+    .shift-card .sc-sub {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .card-shift-a { --card-accent: #38bdf8; }
+    .card-shift-b { --card-accent: #fbbf24; }
+    .card-shift-c { --card-accent: #a78bfa; }
+    .card-shift-total { 
+      --card-accent: #34d399; 
+      background: linear-gradient(145deg, rgba(52, 211, 153, 0.08) 0%, var(--surface) 100%);
+      border-color: rgba(52, 211, 153, 0.3);
+    }
+
+    /* ── Dashboard Graphs ── */
+    .dashboard-charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 992px) {
+      .dashboard-charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .chart-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+    }
+    .chart-box-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .chart-box-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chart-box-title i {
+      color: var(--accent);
+    }
+    .chart-canvas-container {
+      position: relative;
+      width: 100%;
+      height: 250px;
+    }
+
+    /* ── Electrical Metric Cards ── */
     .cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 24px;
-      margin-bottom: 16px;
+      gap: 16px;
+      margin-bottom: 24px;
     }
     @media (max-width: 1200px) {
-      .cards { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
-      .card .label { font-size: 0.75rem; }
-      .card .value { font-size: 1.2rem; }
+      .cards { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+      .card .label { font-size: 0.72rem; }
+      .card .value { font-size: 1.3rem; }
     }
-    @media (max-width: 700px) {
-      .cards { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
-      .card { padding: 8px; }
+
+    /* ── Comprehensive Mobile & Tablet Responsive Architecture ── */
+    @media (max-width: 900px) {
+      .container {
+        padding: 0 4px;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+      }
+      .dashboard-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 22px;
+        margin-bottom: 12px;
+      }
+      .section-title {
+        font-size: 1rem;
+        gap: 7px;
+      }
+      .section-subtitle {
+        font-size: 0.72rem;
+      }
+      .section-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      /* 2-column mobile grid for the 12 parameter cards */
+      .cards {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+        margin-bottom: 20px;
+      }
+      .card {
+        padding: 12px 10px;
+        border-radius: 14px;
+      }
+      .card .label {
+        font-size: 0.68rem;
+        letter-spacing: 0.04em;
+      }
+      .card .value {
+        font-size: 1.25rem;
+        margin-top: 4px;
+      }
+
+      /* Filter Toolbar on mobile */
+      .controls {
+        padding: 14px 12px;
+        border-radius: 16px;
+        gap: 14px;
+      }
+      .filter-bar {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+        width: 100% !important;
+      }
+      .filter-item {
+        min-width: 0 !important;
+        width: 100% !important;
+      }
+      .filter-item:first-child {
+        grid-column: 1 / -1; /* Shift spans both columns */
+      }
+      .filter-item input,
+      .filter-item select {
+        width: 100% !important;
+        min-height: 38px;
+        font-size: 0.8rem;
+        padding: 6px 10px;
+      }
+      .action-row {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 10px !important;
+      }
+      .btn-group {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 8px !important;
+        width: 100% !important;
+      }
+      .btn-download-csv {
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        justify-content: center !important;
+        min-height: 38px;
+      }
+      .btn {
+        width: 100% !important;
+        justify-content: center !important;
+        min-height: 38px;
+      }
+      .live-toggle {
+        width: 100% !important;
+        justify-content: center !important;
+        min-height: 38px;
+      }
+
+      /* Shift summary cards */
+      .shift-cards {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+      }
+      .shift-card {
+        padding: 14px 12px;
+        border-radius: 14px;
+      }
+      .shift-card .sc-value {
+        font-size: 1.45rem;
+      }
+      .shift-card .sc-label {
+        font-size: 0.72rem;
+      }
+      .shift-card .sc-sub {
+        font-size: 0.68rem;
+      }
+
+      /* Single column charts */
+      .dashboard-charts-grid {
+        grid-template-columns: 1fr !important;
+        gap: 14px;
+      }
+      .chart-box {
+        padding: 14px 12px;
+        border-radius: 16px;
+      }
+      .chart-canvas-container {
+        height: 220px;
+      }
+
+      /* Table responsive scroll container */
+      .table-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+      }
+      #data-table {
+        min-width: 880px !important;
+        width: 100% !important;
+      }
+      #data-table th,
+      #data-table td {
+        padding: 8px 10px !important;
+        font-size: 0.78rem !important;
+        white-space: nowrap;
+      }
     }
-    @media (max-width: 600px) {
-      .cards { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-      .card .label { font-size: 0.7rem; }
-      .card .value { font-size: 1.15rem; }
-      .filter-bar { gap: 10px; }
-      .filter-item { flex: 1 1 100% !important; width: 100% !important; }
-      .action-row { flex-direction: column; align-items: stretch; }
-      .btn-group { flex-direction: column; }
-      .btn { width: 100%; justify-content: center; }
-      .live-toggle { width: 100%; justify-content: center; }
-    }
+
     @media (max-width: 480px) {
-      .cards { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-      .card { padding: 10px 10px; }
-      .card .label { font-size: 0.7rem; }
-      .card .value { font-size: 1.1rem; }
+      .shift-cards {
+        grid-template-columns: 1fr !important;
+      }
+      .active-shift-badge {
+        font-size: 0.72rem;
+        padding: 4px 10px;
+      }
+      .device-status-badge {
+        font-size: 0.72rem;
+        padding: 4px 10px;
+      }
     }
     .card {
       background: var(--card);
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       border-radius: 16px;
-      padding: 24px 18px 24px 18px;
-      margin: 4px 0;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-      color: #fff;
-      transition: box-shadow 0.2s;
+      padding: 18px 14px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+      color: #ffffff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      transition: transform 0.2s, box-shadow 0.2s;
     }
-    .cards .card:nth-child(1) { background: linear-gradient(135deg, #f472b6 0%, #818cf8 100%); }
-    .cards .card:nth-child(2) { background: linear-gradient(135deg, #34d399 0%, #60a5fa 100%); }
-    .cards .card:nth-child(3) { background: linear-gradient(135deg, #fbbf24 0%, #f472b6 100%); }
-    .cards .card:nth-child(4) { background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%); }
-    .cards .card:nth-child(5) { background: linear-gradient(135deg, #f472b6 0%, #fbbf24 100%); }
-    .cards .card:nth-child(6) { background: linear-gradient(135deg, #818cf8 0%, #34d399 100%); }
-    .cards .card:nth-child(7) { background: linear-gradient(135deg, #fbbf24 0%, #34d399 100%); }
-    .cards .card:nth-child(8) { background: linear-gradient(135deg, #a78bfa 0%, #f472b6 100%); }
-    .cards .card:nth-child(9) { background: linear-gradient(135deg, #60a5fa 0%, #fbbf24 100%); }
-    .cards .card:nth-child(10) { background: linear-gradient(135deg, #34d399 0%, #f472b6 100%); }
-    .cards .card:nth-child(11) { background: linear-gradient(135deg, #818cf8 0%, #fbbf24 100%); }
-    .cards .card:nth-child(12) { background: linear-gradient(135deg, #f472b6 0%, #60a5fa 100%); }
-    .cards .card:nth-child(13) { background: linear-gradient(135deg, #fbbf24 0%, #818cf8 100%); }
-    .cards .card:nth-child(14) { background: linear-gradient(135deg, #a78bfa 0%, #34d399 100%); }
-    .cards .card:nth-child(15) { background: linear-gradient(135deg, #60a5fa 0%, #f472b6 100%); }
     .card:hover {
-      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
     }
+    /* Bright, vibrant high-energy gradients */
+    .cards .card:nth-child(1)  { background: linear-gradient(135deg, #ff2a85 0%, #7928ca 100%); }
+    .cards .card:nth-child(2)  { background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); }
+    .cards .card:nth-child(3)  { background: linear-gradient(135deg, #ff9900 0%, #ff3b30 100%); }
+    .cards .card:nth-child(4)  { background: linear-gradient(135deg, #2563eb 0%, #8b5cf6 100%); }
+    .cards .card:nth-child(5)  { background: linear-gradient(135deg, #ff0844 0%, #ff6b8b 100%); }
+    .cards .card:nth-child(6)  { background: linear-gradient(135deg, #0575e6 0%, #00f260 100%); }
+    .cards .card:nth-child(7)  { background: linear-gradient(135deg, #f59e0b 0%, #10b981 100%); }
+    .cards .card:nth-child(8)  { background: linear-gradient(135deg, #9333ea 0%, #ff1493 100%); }
+    .cards .card:nth-child(9)  { background: linear-gradient(135deg, #0ea5e9 0%, #f59e0b 100%); }
+    .cards .card:nth-child(10) { background: linear-gradient(135deg, #10b981 0%, #f43f5e 100%); }
+    .cards .card:nth-child(11) { background: linear-gradient(135deg, #6366f1 0%, #fbbf24 100%); }
+    .cards .card:nth-child(12) { background: linear-gradient(135deg, #ec4899 0%, #3b82f6 100%); }
     .card .label {
-      color: var(--text);
-      font-size: 0.8rem;
+      color: rgba(255,255,255,0.9);
+      font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       font-weight: 700;
     }
     .card .value {
-      font-size: 1.6rem;
+      font-size: 1.5rem;
       font-weight: 700;
       margin-top: 6px;
     }
+
+    /* ── Redesigned Modern Filter Toolbar ── */
     .controls {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 24px;
+      padding: 18px 22px;
       margin-bottom: 24px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    @media (min-width: 1200px) {
+      .controls {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
     }
     .filter-bar {
       display: flex;
       flex-wrap: wrap;
-      gap: 20px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 20px;
+      align-items: center;
+      gap: 14px;
     }
     .filter-item {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 6px;
+      min-width: 130px;
     }
     .filter-item label {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 800;
-      color: var(--muted);
+      color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.08em;
       display: flex;
       align-items: center;
       gap: 6px;
     }
+    .filter-item label i {
+      color: var(--accent);
+      font-size: 0.72rem;
+    }
     .filter-item select, .filter-item input {
-      padding: 10px 14px;
+      padding: 8px 12px;
       border: 1px solid var(--border);
       border-radius: 12px;
       background: var(--surface-2);
       font-weight: 600;
       color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
+      min-height: 40px;
       transition: all 0.2s;
-      min-height: 44px;
     }
     .filter-item select:focus, .filter-item input:focus {
       border-color: var(--accent);
       background: var(--surface-3);
-      box-shadow: 0 0 0 4px rgba(56,189,248,0.1);
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.15);
       outline: none;
     }
-    
     .action-row {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
       flex-wrap: wrap;
-      gap: 16px;
+      align-items: flex-end;
+      gap: 12px;
     }
-    .btn-group { display: flex; gap: 12px; }
+    .btn-group { display: flex; gap: 8px; }
     
-    .live-toggle {
-      display: flex;
+    .btn-download-csv {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+      color: #fff !important;
+      border: none !important;
+      font-weight: 700;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      border-radius: 12px;
+      padding: 9px 16px;
+      min-height: 40px;
+      cursor: pointer;
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+      transition: all 0.2s;
+    }
+    .btn-download-csv:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+      filter: brightness(1.08);
+    }
+    .live-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       background: var(--surface-2);
-      padding: 10px 18px;
+      padding: 9px 14px;
       border-radius: 12px;
       border: 1px solid var(--border);
       cursor: pointer;
-      font-weight: 700;
-      font-size: 0.85rem;
-      transition: all 0.2s;
+      font-weight: 800;
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      transition: all 0.2s ease;
       color: var(--text);
+      user-select: none;
+      min-height: 40px;
     }
     .live-toggle:hover {
       background: var(--surface-3);
       border-color: var(--accent);
     }
     .live-toggle input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       cursor: pointer;
+      accent-color: #10b981;
     }
     .status {
       color: var(--muted);
       font-size: 0.9rem;
       margin-bottom: 10px;
     }
-    .muted {
-      color: var(--muted);
+
+    /* ── Table Footer Summary Styling ── */
+    #data-table tfoot tr {
+      background: var(--surface-2);
+      border-top: 2px solid var(--accent);
+      font-weight: 700;
     }
+    #data-table tfoot td {
+      padding: 14px 16px;
+      color: var(--text);
+    }
+    /* ── Live Connection Badge ── */
+    .device-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 800;
+      border: 1px solid var(--border);
+      transition: all 0.3s ease;
+      letter-spacing: 0.04em;
+    }
+    .device-status-badge .status-pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .device-status-badge.status-online {
+      background: rgba(52, 211, 153, 0.12);
+      border-color: rgba(52, 211, 153, 0.4);
+      color: #34d399;
+    }
+    .device-status-badge.status-online .status-pulse-dot {
+      background: #34d399;
+      box-shadow: 0 0 8px #34d399;
+    }
+    .device-status-badge.status-warning {
+      background: rgba(251, 191, 36, 0.12);
+      border-color: rgba(251, 191, 36, 0.4);
+      color: #fbbf24;
+    }
+    .device-status-badge.status-warning .status-pulse-dot {
+      background: #fbbf24;
+      box-shadow: 0 0 8px #fbbf24;
+    }
+    .device-status-badge.status-offline {
+      background: rgba(248, 113, 113, 0.12);
+      border-color: rgba(248, 113, 113, 0.4);
+      color: #f87171;
+    }
+    .device-status-badge.status-offline .status-pulse-dot {
+      background: #f87171;
+      box-shadow: none;
+    }
+    .device-status-badge .status-meta {
+      font-size: 0.72rem;
+      font-weight: 600;
+      opacity: 0.8;
+      margin-left: 2px;
+    }
+
+    .tfoot-summary-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      margin-left: 6px;
+    }
+  
+    /* ── Mobile Telemetry Table & Card Feed ── */
+    .table-view-switcher {
+      display: inline-flex;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 3px;
+      gap: 3px;
+    }
+    .view-switch-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    .view-switch-btn:hover {
+      color: var(--text);
+    }
+    .view-switch-btn.active {
+      background: var(--accent);
+      color: #0b0f1a;
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.3);
+    }
+    .table-swipe-hint {
+      display: none;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 8px;
+      padding: 6px 12px;
+      margin-bottom: 10px;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+    @media (max-width: 900px) {
+      .table-swipe-hint {
+        display: flex;
+      }
+    }
+
+    /* Sticky First Column for Table on Mobile Horizontal Swipe */
+    #data-table th:first-child,
+    #data-table td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: var(--surface);
+      border-right: 2px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+    #data-table thead th:first-child {
+      z-index: 6;
+      background: var(--surface-2);
+    }
+    #data-table tbody tr:hover td:first-child {
+      background: var(--surface-2);
+    }
+
+    /* Mobile Telemetry Log Cards */
+    .mobile-log-cards {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+    }
+    .log-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 14px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: all 0.2s ease;
+    }
+    .log-card:hover {
+      border-color: var(--border-glow);
+      transform: translateY(-2px);
+    }
+    .log-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .log-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .log-time i {
+      color: var(--accent);
+      font-size: 0.75rem;
+    }
+    .log-main-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      background: var(--surface-2);
+      border-radius: 12px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .log-metric-col {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .log-metric-lbl {
+      font-size: 0.64rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .log-metric-val {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .log-metric-val small {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .log-registers-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px 10px;
+      font-size: 0.74rem;
+    }
+    .log-reg-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.02);
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .log-reg-k {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.68rem;
+    }
+    .log-reg-v {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+
+
   </style>
 {% endblock %}
 
 {% block content %}
   <div class="container">
+    
+    <!-- Real-Time Telemetry & Electrical Parameter Cards -->
+    <div class="dashboard-section-header" style="margin-top: 0;">
+      <div class="section-title-wrap">
+        <div class="section-title">
+          <i class="fa-solid fa-gauge-high"></i>
+          <span>Real-Time Electrical Parameters</span>
+        </div>
+        <div class="section-subtitle">Live voltage, current, power factor, and frequency telemetry streamed directly from node meter</div>
+      </div>
+      
+      <!-- Top Live Status & Shift Badges -->
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <div class="device-status-badge status-offline" id="live-connection-badge">
+          <span class="status-pulse-dot" id="connection-dot"></span>
+          <span id="connection-state">Checking Device Status...</span>
+        </div>
+        <div class="active-shift-badge">
+          <span class="pulse-dot"></span>
+          <span>CURRENT: <strong id="current-shift-name">SHIFT A</strong></span>
+          <span style="opacity: 0.7; font-weight: 500;" id="shift-window-time">(06:30 - 14:30)</span>
+        </div>
+      </div>
+    </div>
     <div class="cards">
-      <div class="card"><div class="label">Total kWh</div><div class="value" id="kwh">0.00</div></div>
-      <div class="card"><div class="label">Power Factor </div><div class="value" id="pf">0.00</div></div>
+      <div class="card"><div class="label">Total Meter kWh</div><div class="value" id="kwh">0.00</div></div>
+      <div class="card"><div class="label">Power Factor</div><div class="value" id="pf">0.00</div></div>
       <div class="card"><div class="label">Frequency</div><div class="value" id="freq">0.00</div></div>
       <div class="card"><div class="label">Voltage RN</div><div class="value" id="vrn">0.00</div></div>
       <div class="card"><div class="label">Voltage YN</div><div class="value" id="vyn">0.00</div></div>
@@ -188,8 +826,17 @@
       <div class="card"><div class="label">Current B</div><div class="value" id="ib">0.00</div></div>
     </div>
 
+    <!-- Filters & Action Bar -->
+    <div class="dashboard-section-header">
+      <div class="section-title-wrap">
+        <div class="section-title">
+          <i class="fa-solid fa-sliders"></i>
+          <span>Date Range & Telemetry Filter Controls</span>
+        </div>
+        <div class="section-subtitle">Select shifts, filter custom date windows, or toggle live Modbus streaming</div>
+      </div>
+    </div>
     <div class="controls">
-      <!-- Top: Filters -->
       <div class="filter-bar">
         <div class="filter-item" style="flex: 1; min-width: 140px;">
           <label><i class="fa-solid fa-clock-rotate-left"></i> SHIFT</label>
@@ -214,7 +861,6 @@
         </div>
       </div>
 
-      <!-- Bottom: Actions -->
       <div class="action-row">
         <div class="btn-group">
           <button class="btn btn-primary" id="btn-load">
@@ -230,19 +876,129 @@
             <input type="checkbox" id="use-live-table" checked /> 
             <span><i class="fa-solid fa-tower-broadcast"></i> LIVE STREAM</span>
           </label>
-          <button class="btn btn-secondary" id="btn-download">
+          <button class="btn btn-download-csv" id="btn-download">
             <i class="fa-solid fa-download"></i> DOWNLOAD CSV
           </button>
         </div>
       </div>
     </div>
 
-    <div class="status" id="status">Waiting for data.</div>
+    <!-- Shift-Wise Cumulative Energy Section -->
+    <div class="shift-summary-section">
+      <div class="section-header-row">
+        <div class="section-title-wrap">
+          <div class="section-title">
+            <i class="fa-solid fa-bolt-lightning"></i>
+            <span>Shift-Wise Cumulative Energy Consumption</span>
+          </div>
+          <div class="section-subtitle">Calculated industrial production shift energy accumulation (Shift A, B, C) for the selected period</div>
+        </div>
+      </div>
 
-    <div class="table-label">
-      Table Mode: <span class="badge" id="table-mode">Live Table</span>
+      <div class="shift-cards">
+        <div class="shift-card card-shift-a">
+          <div class="sc-head">
+            <span class="sc-label">Shift A Consumption</span>
+            <i class="fa-solid fa-sun sc-icon"></i>
+          </div>
+          <div class="sc-value"><span id="shift-a-val">0.00</span><span class="sc-unit">kWh</span></div>
+          <div class="sc-sub">06:30 AM — 02:30 PM</div>
+        </div>
+
+        <div class="shift-card card-shift-b">
+          <div class="sc-head">
+            <span class="sc-label">Shift B Consumption</span>
+            <i class="fa-solid fa-cloud-sun sc-icon"></i>
+          </div>
+          <div class="sc-value"><span id="shift-b-val">0.00</span><span class="sc-unit">kWh</span></div>
+          <div class="sc-sub">02:30 PM — 10:30 PM</div>
+        </div>
+
+        <div class="shift-card card-shift-c">
+          <div class="sc-head">
+            <span class="sc-label">Shift C Consumption</span>
+            <i class="fa-solid fa-moon sc-icon"></i>
+          </div>
+          <div class="sc-value"><span id="shift-c-val">0.00</span><span class="sc-unit">kWh</span></div>
+          <div class="sc-sub">10:30 PM — 06:30 AM</div>
+        </div>
+
+        <div class="shift-card card-shift-total">
+          <div class="sc-head">
+            <span class="sc-label">Total Energy Consumed</span>
+            <i class="fa-solid fa-chart-pie sc-icon"></i>
+          </div>
+          <div class="sc-value"><span id="shift-total-val">0.00</span><span class="sc-unit">kWh</span></div>
+          <div class="sc-sub" id="shift-period-sub">Selected Period Accumulation</div>
+        </div>
+      </div>
     </div>
-    <div class="table-wrap">
+
+    <!-- Working Graphs: Shift Distribution & Consumption Trend -->
+    <div class="dashboard-section-header">
+      <div class="section-title-wrap">
+        <div class="section-title">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Energy Analytics & Trend Visualizations</span>
+        </div>
+        <div class="section-subtitle">Visual shift distribution breakdown and progressive consumption step timeline</div>
+      </div>
+    </div>
+    <div class="dashboard-charts-grid">
+      <div class="chart-box">
+        <div class="chart-box-header">
+          <span class="chart-box-title"><i class="fa-solid fa-chart-column"></i> Shift Distribution (kWh)</span>
+          <span class="badge" id="chart-dev-badge">Node</span>
+        </div>
+        <div class="chart-canvas-container">
+          <canvas id="shiftBarChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-box">
+        <div class="chart-box-header">
+          <span class="chart-box-title"><i class="fa-solid fa-chart-area"></i> Energy Consumption Timeline</span>
+          <span class="badge" id="chart-points-badge">Live Trend</span>
+        </div>
+        <div class="chart-canvas-container">
+          <canvas id="timelineChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="status" id="status">Waiting for data...</div>
+
+    <div class="dashboard-section-header">
+      <div class="section-title-wrap">
+        <div class="section-title">
+          <i class="fa-solid fa-table-list"></i>
+          <span>Raw Telemetry Logs & Shift Records</span>
+        </div>
+        <div class="section-subtitle">Historical and live raw register telemetry readings with cumulative period summary totals</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <div class="table-view-switcher">
+          <button class="view-switch-btn active" id="btn-view-cards" onclick="setTableViewMode('cards')">
+            <i class="fa-solid fa-layer-group"></i> <span>Cards Feed</span>
+          </button>
+          <button class="view-switch-btn" id="btn-view-table" onclick="setTableViewMode('table')">
+            <i class="fa-solid fa-table-cells"></i> <span>Wide Table</span>
+          </button>
+        </div>
+        <div class="table-label" style="margin-bottom: 0;">
+          Mode: <span class="badge" id="table-mode">Live Stream</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Swipe Helper for Table Mode -->
+    <div class="table-swipe-hint" id="table-swipe-hint">
+      <i class="fa-solid fa-arrows-left-right" style="color: var(--accent);"></i>
+      <span>Swipe horizontally to inspect all 14 electrical registers (Timestamp column stays pinned).</span>
+    </div>
+
+    <!-- Table Container -->
+    <div class="table-wrap" id="table-wrap-container">
       <table id="data-table">
         <thead>
           <tr>
@@ -263,8 +1019,29 @@
           </tr>
         </thead>
         <tbody></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" style="font-weight: 800; color: var(--accent);">PERIOD SUMMARY:</td>
+            <td colspan="12">
+              <span>Total Consumed: <strong id="tfoot-total" style="color: #34d399;">0.00 kWh</strong></span>
+              <span style="margin: 0 12px; opacity: 0.3;">|</span>
+              <span>Shift A: <strong id="tfoot-a" style="color: #38bdf8;">0.00 kWh</strong></span>
+              <span style="margin: 0 12px; opacity: 0.3;">|</span>
+              <span>Shift B: <strong id="tfoot-b" style="color: #fbbf24;">0.00 kWh</strong></span>
+              <span style="margin: 0 12px; opacity: 0.3;">|</span>
+              <span>Shift C: <strong id="tfoot-c" style="color: #a78bfa;">0.00 kWh</strong></span>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
+
+    <!-- Mobile Responsive Card Feed Container -->
+    <div class="mobile-log-cards" id="mobile-log-cards">
+      <!-- Populated via renderTable / renderCardFeed -->
+    </div>
+
+
   </div>
 {% endblock %}
 
@@ -273,11 +1050,17 @@
     const tableBody = document.querySelector('#data-table tbody');
     const statusEl = document.getElementById('status');
 
+    let shiftBarChart = null;
+    let timelineChart = null;
+    let liveTableRows = [];
+    let currentShiftCache = { A: 0, B: 0, C: 0, total: 0 };
+
     function formatNum(val, digits) {
       const num = Number(val);
       if (!isFinite(num)) return '-';
       return num.toFixed(digits);
     }
+
     function normalizeRow(raw) {
       if (!raw || typeof raw !== 'object') return {};
       return {
@@ -298,16 +1081,60 @@
       };
     }
 
+    let currentViewMode = window.innerWidth <= 900 ? 'cards' : 'table';
+    const storedViewMode = localStorage.getItem('dashboard_view_mode');
+    if (storedViewMode) currentViewMode = storedViewMode;
+
+    function setTableViewMode(mode) {
+      currentViewMode = mode;
+      localStorage.setItem('dashboard_view_mode', mode);
+      applyViewModeUI();
+    }
+
+    function applyViewModeUI() {
+      const btnCards = document.getElementById('btn-view-cards');
+      const btnTable = document.getElementById('btn-view-table');
+      const tableWrap = document.getElementById('table-wrap-container');
+      const cardsWrap = document.getElementById('mobile-log-cards');
+      const swipeHint = document.getElementById('table-swipe-hint');
+      
+      if (currentViewMode === 'cards') {
+        btnCards && btnCards.classList.add('active');
+        btnTable && btnTable.classList.remove('active');
+        if (tableWrap) tableWrap.style.display = 'none';
+        if (cardsWrap) cardsWrap.style.display = 'flex';
+        if (swipeHint) swipeHint.style.display = 'none';
+      } else {
+        btnCards && btnCards.classList.remove('active');
+        btnTable && btnTable.classList.add('active');
+        if (tableWrap) tableWrap.style.display = 'block';
+        if (cardsWrap) cardsWrap.style.display = 'none';
+        if (swipeHint && window.innerWidth <= 900) swipeHint.style.display = 'flex';
+      }
+    }
+
     function renderTable(rows) {
       tableBody.innerHTML = '';
+      const cardsWrap = document.getElementById('mobile-log-cards');
+      if (cardsWrap) cardsWrap.innerHTML = '';
+
+      if (!rows || !rows.length) {
+        tableBody.innerHTML = '<tr><td colspan="14" style="text-align: center; padding: 24px; color: var(--text-dim);">No records found for current filter.</td></tr>';
+        if (cardsWrap) {
+          cardsWrap.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-muted); background: var(--surface); border-radius: 14px; border: 1px solid var(--border);">No records found for current filter.</div>';
+        }
+        return;
+      }
       
       rows.forEach(rawRow => {
         const row = normalizeRow(rawRow);
+        
+        // 1. Render Table Row (with sticky time column)
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${row.TIMESTAMP || '-'}</td>
-          <td>${row.SHIFT || '-'}</td>
-          <td>${formatNum(row.ENERGY, 1)}</td>
+          <td><span class="badge" style="background: rgba(56,189,248,0.15);">${row.SHIFT || '-'}</span></td>
+          <td><strong>${formatNum(row.ENERGY, 1)}</strong></td>
           <td>${formatNum(row.POWER_FACTOR, 3)}</td>
           <td>${formatNum(row.FREQUENCY, 2)}</td>
           <td>${formatNum(row.VR, 1)}</td>
@@ -321,7 +1148,49 @@
           <td>${formatNum(row.IB, 2)}</td>
         `;
         tableBody.appendChild(tr);
+
+        // 2. Render Responsive Mobile Log Card
+        if (cardsWrap) {
+          const cardDiv = document.createElement('div');
+          cardDiv.className = 'log-card';
+          
+          let shiftColor = '#38bdf8';
+          if (row.SHIFT === 'B') shiftColor = '#fbbf24';
+          if (row.SHIFT === 'C') shiftColor = '#a78bfa';
+
+          cardDiv.innerHTML = `
+            <div class="log-card-header">
+              <span class="log-time"><i class="fa-regular fa-clock"></i> ${row.TIMESTAMP || '-'}</span>
+              <span class="badge" style="background: ${shiftColor}20; color: ${shiftColor}; border: 1px solid ${shiftColor}40;">SHIFT ${row.SHIFT || '-'}</span>
+            </div>
+            <div class="log-main-metrics">
+              <div class="log-metric-col">
+                <span class="log-metric-lbl">TOTAL ENERGY</span>
+                <span class="log-metric-val" style="color: #34d399;">${formatNum(row.ENERGY, 1)} <small>kWh</small></span>
+              </div>
+              <div class="log-metric-col">
+                <span class="log-metric-lbl">POWER FACTOR</span>
+                <span class="log-metric-val">${formatNum(row.POWER_FACTOR, 3)}</span>
+              </div>
+              <div class="log-metric-col">
+                <span class="log-metric-lbl">FREQUENCY</span>
+                <span class="log-metric-val">${formatNum(row.FREQUENCY, 2)} <small>Hz</small></span>
+              </div>
+            </div>
+            <div class="log-registers-grid">
+              <div class="log-reg-item"><span class="log-reg-k">V-RN</span><span class="log-reg-v">${formatNum(row.VR, 1)}V</span></div>
+              <div class="log-reg-item"><span class="log-reg-k">V-YN</span><span class="log-reg-v">${formatNum(row.VY, 1)}V</span></div>
+              <div class="log-reg-item"><span class="log-reg-k">V-BN</span><span class="log-reg-v">${formatNum(row.VB, 1)}V</span></div>
+              <div class="log-reg-item"><span class="log-reg-k">IR</span><span class="log-reg-v" style="color: #ef4444;">${formatNum(row.IR, 2)}A</span></div>
+              <div class="log-reg-item"><span class="log-reg-k">IY</span><span class="log-reg-v" style="color: #fbbf24;">${formatNum(row.IY, 2)}A</span></div>
+              <div class="log-reg-item"><span class="log-reg-k">IB</span><span class="log-reg-v" style="color: #38bdf8;">${formatNum(row.IB, 2)}A</span></div>
+            </div>
+          `;
+          cardsWrap.appendChild(cardDiv);
+        }
       });
+
+      applyViewModeUI();
     }
 
     function getLatestRow(rows) {
@@ -338,6 +1207,7 @@
     }
 
     function updateCards(latest) {
+      if (!latest) return;
       const row = normalizeRow(latest);
       if (!row.TIMESTAMP && !row.ENERGY && !row.POWER_FACTOR) return;
       const pf = Number(row.POWER_FACTOR || 0);
@@ -353,6 +1223,196 @@
       document.getElementById('ir').innerText = formatNum(row.IR, 2);
       document.getElementById('iy').innerText = formatNum(row.IY, 2);
       document.getElementById('ib').innerText = formatNum(row.IB, 2);
+    }
+
+    /* ── Initialize or Update Charts ── */
+    function initOrUpdateShiftBarChart(shiftA, shiftB, shiftC) {
+      const ctx = document.getElementById('shiftBarChart');
+      if (!ctx) return;
+      
+      const dataValues = [shiftA, shiftB, shiftC];
+      const colors = ['#38bdf8', '#fbbf24', '#a78bfa'];
+      const bgColors = ['rgba(56, 189, 248, 0.3)', 'rgba(251, 191, 36, 0.3)', 'rgba(167, 139, 250, 0.3)'];
+
+      if (shiftBarChart) {
+        shiftBarChart.data.datasets[0].data = dataValues;
+        shiftBarChart.update();
+        return;
+      }
+
+      shiftBarChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Shift A (06:30-14:30)', 'Shift B (14:30-22:30)', 'Shift C (22:30-06:30)'],
+          datasets: [{
+            label: 'Consumption (kWh)',
+            data: dataValues,
+            backgroundColor: bgColors,
+            borderColor: colors,
+            borderWidth: 2,
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.parsed.y} kWh consumed`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8', font: { weight: 'bold' } }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: {
+                color: '#94a3b8',
+                callback: (val) => val + ' kWh'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function initOrUpdateTimelineChart(timeline) {
+      const ctx = document.getElementById('timelineChart');
+      if (!ctx) return;
+
+      const labels = (timeline || []).map(p => {
+        const ts = p.timestamp || '';
+        return ts.length > 11 ? ts.substring(11, 16) : ts;
+      });
+      const diffValues = (timeline || []).map(p => p.diff || 0);
+
+      if (timelineChart) {
+        timelineChart.data.labels = labels;
+        timelineChart.data.datasets[0].data = diffValues;
+        timelineChart.update();
+        return;
+      }
+
+      timelineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Interval Energy (kWh)',
+            data: diffValues,
+            borderColor: '#34d399',
+            backgroundColor: 'rgba(52, 211, 153, 0.15)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.3,
+            pointRadius: labels.length > 30 ? 0 : 3,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.parsed.y} kWh in step`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8', maxTicksLimit: 8 }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8' }
+            }
+          }
+        }
+      });
+    }
+
+    /* ── Update Shift Cumulative Energy & Charts ── */
+    async function updateShiftSummary() {
+      const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip') || '';
+      const start = document.getElementById('start').value;
+      const end = document.getElementById('end').value;
+      const shift = document.getElementById('shift').value;
+
+      const params = new URLSearchParams();
+      if (ip) params.append('ip', ip);
+      if (start) params.append('start_date', start);
+      if (end) params.append('end_date', end);
+      if (shift) params.append('shift', shift);
+
+      try {
+        const resp = await fetch(`/api/energy/shifts?${params.toString()}`);
+        if (!resp.ok) return;
+        const res = await resp.json();
+
+        if (res.ok) {
+          currentShiftCache = {
+            A: res.shift_a || 0,
+            B: res.shift_b || 0,
+            C: res.shift_c || 0,
+            total: res.total_energy || 0
+          };
+
+          // Update KPI Cards
+          document.getElementById('shift-a-val').innerText = formatNum(res.shift_a, 2);
+          document.getElementById('shift-b-val').innerText = formatNum(res.shift_b, 2);
+          document.getElementById('shift-c-val').innerText = formatNum(res.shift_c, 2);
+          document.getElementById('shift-total-val').innerText = formatNum(res.total_energy, 2);
+
+          // Update Active Shift Indicator
+          const curShift = res.current_shift || 'A';
+          document.getElementById('current-shift-name').innerText = `SHIFT ${curShift}`;
+          const shiftHours = { A: '(06:30 - 14:30)', B: '(14:30 - 22:30)', C: '(22:30 - 06:30)' };
+          document.getElementById('shift-window-time').innerText = shiftHours[curShift] || '';
+
+          // Update Machine name badge
+          const badgeEl = document.getElementById('chart-dev-badge');
+          if (badgeEl && res.device_name) badgeEl.innerText = res.device_name;
+
+          // Update Table Footers (Desktop + Mobile)
+          const totStr = `${formatNum(res.total_energy, 2)} kWh`;
+          const aStr = `${formatNum(res.shift_a, 2)} kWh`;
+          const bStr = `${formatNum(res.shift_b, 2)} kWh`;
+          const cStr = `${formatNum(res.shift_c, 2)} kWh`;
+
+          const tTot = document.getElementById('tfoot-total'); if (tTot) tTot.innerText = totStr;
+          const tA = document.getElementById('tfoot-a'); if (tA) tA.innerText = aStr;
+          const tB = document.getElementById('tfoot-b'); if (tB) tB.innerText = bStr;
+          const tC = document.getElementById('tfoot-c'); if (tC) tC.innerText = cStr;
+
+
+
+          // Update Charts
+          initOrUpdateShiftBarChart(res.shift_a, res.shift_b, res.shift_c);
+          initOrUpdateTimelineChart(res.timeline);
+
+          const ptsBadge = document.getElementById('chart-points-badge');
+          if (ptsBadge) ptsBadge.innerText = `${res.timeline ? res.timeline.length : 0} Steps`;
+
+          // Keep date pickers fixed to today's selection (do not overwrite with db historical bounds)
+
+          // If latest reading exists, update cards if idle
+          if (res.latest_reading && (!liveTableRows.length || !document.getElementById('use-live-table').checked)) {
+            updateCards(res.latest_reading);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching shift summary:', err);
+      }
     }
 
     function setControlsDisabled(disabled) {
@@ -374,6 +1434,7 @@
       const liveToggle = document.getElementById('use-live-table');
       if (liveToggle.checked) liveToggle.checked = false;
       setTableMode('manual');
+
       const shift = document.getElementById('shift').value;
       const start = document.getElementById('start').value;
       const end = document.getElementById('end').value;
@@ -381,67 +1442,60 @@
 
       statusEl.innerText = 'Loading data...';
 
-      const today = new Date();
-      const defaultEnd = today.toISOString().slice(0, 10);
-      const defaultStart = new Date(today.getFullYear() - 5, 0, 1).toISOString().slice(0, 10);
-      const startDate = rangeMode === 'all' ? defaultStart : start;
-      const endDate = rangeMode === 'all' ? defaultEnd : end;
+      let startDate = start;
+      let endDate = end;
 
-      if (!startDate || !endDate) {
-        statusEl.innerText = 'Please select a date range or use Load All.';
-        return;
+      if (rangeMode === 'all') {
+        startDate = '';
+        endDate = '';
       }
 
       const params = new URLSearchParams({
         shift,
-        start_date: startDate,
-        end_date: endDate,
         limit: String(limit)
       });
+      if (startDate) params.append('start_date', startDate);
+      if (endDate) params.append('end_date', endDate);
+
       const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
       if (ip) params.append('ip', ip);
 
-      const resp = await fetch(`/api/raw?${params.toString()}`);
-      if (!resp.ok) {
-        statusEl.innerText = 'Failed to load data.';
-        return;
-      }
+      try {
+        const resp = await fetch(`/api/raw?${params.toString()}`);
+        if (!resp.ok) {
+          statusEl.innerText = 'Failed to load data.';
+          return;
+        }
 
-      const rows = await resp.json();
-      renderTable(rows);
-      updateCards(getLatestRow(rows));
-      updateShiftSummary(); // Refresh summary too
-      statusEl.innerText = `Loaded ${rows.length} rows.`;
+        const rows = await resp.json();
+        renderTable(rows);
+        updateCards(getLatestRow(rows));
+        updateShiftSummary(); // Refresh shift calculations & charts
+        statusEl.innerText = `Loaded ${rows.length} rows.`;
+      } catch (e) {
+        statusEl.innerText = 'Network error while loading data.';
+      }
     }
 
     document.getElementById('btn-load').addEventListener('click', () => loadData('range'));
     document.getElementById('btn-all').addEventListener('click', () => loadData('all'));
 
-    const today = new Date();
-    const weekAgo = new Date(today);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    document.getElementById('start').valueAsDate = weekAgo;
-    document.getElementById('end').valueAsDate = today;
-
-    // Initial mode
-    const initialLiveToggle = document.getElementById('use-live-table');
-    if (initialLiveToggle.checked) {
-      setTableMode('live');
-    } else {
-      loadData('range');
-    }
-
-    // Store latest table data for download
-    let liveTableRows = [];
-
     function handleStreamRow(row) {
       const normalized = normalizeRow(row);
       if (!normalized.TIMESTAMP) return;
       updateCards(normalized);
+
       const liveToggle = document.getElementById('use-live-table');
-      if (liveToggle.checked) {
+      if (liveToggle && liveToggle.checked) {
         liveTableRows = [normalized, ...liveTableRows.filter(r => r.TIMESTAMP !== normalized.TIMESTAMP)].slice(0, 10);
         renderTable(liveTableRows);
+      }
+      
+      // Periodically refresh shift accumulation
+      const now = Date.now();
+      if (!window._lastSummaryRefresh || now - window._lastSummaryRefresh > 15000) {
+        window._lastSummaryRefresh = now;
+        updateShiftSummary();
       }
     }
 
@@ -455,28 +1509,17 @@
           return;
         }
         data = liveTableRows;
-        filename = `Power_Consuption.csv`;
+        filename = `Power_Consumption.csv`;
       } else {
         const shift = document.getElementById('shift').value;
         const start = document.getElementById('start').value;
         const end = document.getElementById('end').value;
-        const limit = Number(document.getElementById('limit').value) || 10;
-        const today = new Date();
-        const defaultEnd = today.toISOString().slice(0, 10);
-        const defaultStart = new Date(today.getFullYear() - 5, 0, 1).toISOString().slice(0, 10);
-        const startDate = start || defaultStart;
-        const endDate = end || defaultEnd;
+        const limit = Number(document.getElementById('limit').value) || 500;
         const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
-        data = {
-          shift,
-          start_date: startDate,
-          end_date: endDate,
-          limit,
-          ip
-        };
-        filename = `energy_data_${shift}_${startDate}_${endDate}.csv`;
+        data = { shift, start_date: start, end_date: end, limit, ip };
+        filename = `energy_data_${shift}_${start || 'all'}_${end || 'all'}.csv`;
       }
-      // Use POST to /api/export/csv
+
       const resp = await fetch('/api/export/csv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -503,20 +1546,86 @@
         setTableMode('live');
       } else {
         setTableMode('manual');
+        loadData('range');
       }
     });
 
-    // Use global SSE stream from base.html
+    /* ── Live Heartbeat & Online Status Poller ── */
+    async function checkDeviceHeartbeat() {
+      const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip') || '1';
+      try {
+        const res = await fetch(`/api/device/status/${encodeURIComponent(ip)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        const badge = document.getElementById('live-connection-badge');
+        const stateEl = document.getElementById('connection-state');
+        if (!badge || !stateEl) return;
+
+        badge.className = 'device-status-badge';
+
+        if (data.online || data.status === 'ONLINE' || data.status === 'MODBUS_TIMEOUT') {
+          badge.classList.add('status-online');
+          stateEl.textContent = 'Device is Online';
+          badge.title = `Device is Online (Last seen: ${data.last_seen})`;
+        } else {
+          badge.classList.add('status-offline');
+          stateEl.textContent = 'Device is Offline';
+          badge.title = `Device is Offline (Last seen: ${data.last_seen})`;
+        }
+      } catch (e) {}
+    }
+
+    setInterval(checkDeviceHeartbeat, 4000);
+    checkDeviceHeartbeat();
+
+    // Listen for global SSE from base.html
     window.addEventListener('sse-data', (e) => {
        const row = e.detail;
        handleStreamRow(row);
     });
 
-    function cleanupDashboardStreams() {
-      // No local stream to close anymore, handled by base.html
+    // Helper: Local date string YYYY-MM-DD
+    function getTodayString() {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
+
+    // Initial setup
+    (async function initDashboard() {
+      // Default date range to Today
+      const todayStr = getTodayString();
+      const startInput = document.getElementById('start');
+      const endInput = document.getElementById('end');
+      if (startInput && !startInput.value) startInput.value = todayStr;
+      if (endInput && !endInput.value) endInput.value = todayStr;
+      // Fetch shift summary and initial chart data
+      await updateShiftSummary();
+
+      // If live mode is selected, load latest 10 rows from /api/raw
+      const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip') || '';
+      try {
+        const rawResp = await fetch(`/api/raw?limit=10&ip=${encodeURIComponent(ip)}`);
+        if (rawResp.ok) {
+          const initRows = await rawResp.json();
+          if (initRows.length) {
+            liveTableRows = initRows;
+            renderTable(liveTableRows);
+            updateCards(getLatestRow(liveTableRows));
+            statusEl.innerText = `Connected. Streaming active for ${initRows.length} recent records.`;
+          }
+        }
+      } catch (e) {}
+
+      const initialLiveToggle = document.getElementById('use-live-table');
+      if (initialLiveToggle.checked) {
+        setTableMode('live');
+      } else {
+        loadData('range');
+      }
+    })();
   </script>
 {% endblock %}
-
-
-

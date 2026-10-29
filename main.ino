@@ -1,6 +1,6 @@
 // Example code for ESP32 Modbus RTU client reading MFM384 registers and sending data via UDP
-// This code is successfully executed in elforge on 03-03-2026
-// Final code
+// Features: Modbus RTU reading, UDP Telemetry, Heartbeat monitoring, and Status LED Pulse
+// Integrated with ELFORGE Energy Monitoring System
 
 #include <WiFi.h>
 #include <WiFiUdp.h>
@@ -19,13 +19,25 @@ WiFiUDP udp;
 
 /* ================= SERVER CONFIG ================= */
 IPAddress SERVER_IP(192, 168, 1, 232);
-const uint16_t UDP_PORT = 50003;
+const uint16_t UDP_PORT = 50004; // Matches app.py UDP_PORT
 
-/* ================= RS485 ================= */
-#define RXD2   32
-#define TXD2   33
-#define DE_RE  4
+/* ================= RS485 & SLAVE CONFIG ================= */
+#define RXD2     32
+#define TXD2     33
+#define DE_RE    4
 #define SLAVE_ID 1
+
+/* ================= HEARTBEAT & STATUS LED ================= */
+#define LED_HEARTBEAT       2        // Onboard LED (GPIO 2 on most ESP32 dev boards)
+#define HEARTBEAT_INTERVAL  10000    // Send UDP heartbeat ping every 10 seconds
+#define LED_BLINK_NORMAL    1000     // 1s blink when WiFi is connected
+#define LED_BLINK_FAST      200      // 200ms rapid blink when WiFi is disconnected
+
+unsigned long lastHeartbeat = 0;
+unsigned long lastLedBlink  = 0;
+bool ledState = false;
+uint32_t heartbeatSeq = 0;
+bool modbusHealthy = false;
 
 /* ================= MFM384 REGISTERS ================= */
 #define REG_VR       0 
@@ -87,10 +99,12 @@ bool cb(Modbus::ResultCode e, uint16_t, void*) {
   if (e != Modbus::EX_SUCCESS) {
     Serial.print("❌ Modbus error: ");
     Serial.println(e);
+    modbusHealthy = false;
     nextState();
     return true;
   }
 
+  modbusHealthy = true;
   float v = decodeDCBA(regBuf[0], regBuf[1]);
 
   switch (state) {
@@ -118,11 +132,11 @@ bool cb(Modbus::ResultCode e, uint16_t, void*) {
   return true;
 }
 
-/* ================= SEND DATA ================= */
+/* ================= SEND UDP TELEMETRY ================= */
 void sendData() {
 
   Serial.println("\n==============================");
-  Serial.println("📤 Preparing to send data...");
+  Serial.println("📤 Preparing to send telemetry...");
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("❌ WiFi NOT connected → Data NOT sent");
@@ -133,7 +147,9 @@ void sendData() {
   char json[512];
 
   snprintf(json, sizeof(json),
-    "{\"energy\":%.2f,"
+    "{\"device_ip\":\"%d\","
+    "\"slave_id\":%d,"
+    "\"energy\":%.2f,"
     "\"power_factor\":%.3f,"
     "\"frequency\":%.2f,"
     "\"vr\":%.2f,"
@@ -145,6 +161,8 @@ void sendData() {
     "\"ir\":%.2f,"
     "\"iy\":%.2f,"
     "\"ib\":%.2f}",
+    SLAVE_ID,
+    SLAVE_ID,
     energy,
     power_factor,
     frequency,
@@ -161,6 +179,7 @@ void sendData() {
 
   if (udp.endPacket()) {
     Serial.println("✅ UDP Packet Sent Successfully");
+    lastHeartbeat = millis(); // Reset heartbeat timer since live telemetry was sent
   } else {
     Serial.println("❌ UDP Packet Send FAILED");
   }
@@ -169,8 +188,54 @@ void sendData() {
   Serial.print(SERVER_IP);
   Serial.print(":");
   Serial.println(UDP_PORT);
-
   Serial.println("==============================");
+}
+
+/* ================= SEND UDP HEARTBEAT ================= */
+void sendHeartbeat() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  heartbeatSeq++;
+  char hbJson[256];
+
+  snprintf(hbJson, sizeof(hbJson),
+    "{\"type\":\"heartbeat\","
+    "\"device_ip\":\"%d\","
+    "\"slave_id\":%d,"
+    "\"seq\":%lu,"
+    "\"uptime_sec\":%lu,"
+    "\"rssi\":%d,"
+    "\"modbus_ok\":%s}",
+    SLAVE_ID,
+    SLAVE_ID,
+    heartbeatSeq,
+    millis() / 1000,
+    WiFi.RSSI(),
+    modbusHealthy ? "true" : "false"
+  );
+
+  udp.beginPacket(SERVER_IP, UDP_PORT);
+  udp.print(hbJson);
+  udp.endPacket();
+
+  Serial.print("💓 Heartbeat sent (#");
+  Serial.print(heartbeatSeq);
+  Serial.print(") | RSSI: ");
+  Serial.print(WiFi.RSSI());
+  Serial.print(" dBm | Modbus: ");
+  Serial.println(modbusHealthy ? "OK" : "TIMEOUT");
+}
+
+/* ================= VISUAL LED HEARTBEAT ================= */
+void updateLedHeartbeat() {
+  unsigned long now = millis();
+  unsigned long blinkInterval = (WiFi.status() == WL_CONNECTED) ? LED_BLINK_NORMAL : LED_BLINK_FAST;
+
+  if (now - lastLedBlink >= blinkInterval) {
+    lastLedBlink = now;
+    ledState = !ledState;
+    digitalWrite(LED_HEARTBEAT, ledState);
+  }
 }
 
 /* ================= WIFI SETUP ================= */
@@ -189,8 +254,10 @@ void setupWiFi() {
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
+    digitalWrite(LED_HEARTBEAT, !digitalRead(LED_HEARTBEAT)); // Toggle LED while waiting
   }
 
+  digitalWrite(LED_HEARTBEAT, HIGH);
   Serial.println("\n✅ WiFi Connected");
   Serial.print("ESP32 IP: ");
   Serial.println(WiFi.localIP());
@@ -215,7 +282,10 @@ void setup() {
   Serial.begin(115200);
   delay(500);
 
-  Serial.println("\n🚀 ESP32 MFM384 Industrial Modbus Client");
+  Serial.println("\n🚀 ESP32 MFM384 Industrial Modbus Client with Heartbeat");
+
+  pinMode(LED_HEARTBEAT, OUTPUT);
+  digitalWrite(LED_HEARTBEAT, LOW);
 
   pinMode(DE_RE, OUTPUT);
   digitalWrite(DE_RE, LOW);
@@ -235,6 +305,7 @@ void loop() {
 
   mb.task();
   checkWiFi();
+  updateLedHeartbeat(); // Keep visual hardware pulse running
 
   /* ---- Modbus Polling ---- */
   if (millis() - lastRead > 300 && !mb.slave()) {
@@ -242,25 +313,31 @@ void loop() {
     lastRead = millis();
 
     switch (state) {
-      case R_VR: mb.readIreg(SLAVE_ID, REG_VR, regBuf, 2, cb); break;
-      case R_VY: mb.readIreg(SLAVE_ID, REG_VY, regBuf, 2, cb); break;
-      case R_VB: mb.readIreg(SLAVE_ID, REG_VB, regBuf, 2, cb); break;
-      case R_RY: mb.readIreg(SLAVE_ID, REG_RY, regBuf, 2, cb); break;
-      case R_YB: mb.readIreg(SLAVE_ID, REG_YB, regBuf, 2, cb); break;
-      case R_BR: mb.readIreg(SLAVE_ID, REG_BR, regBuf, 2, cb); break;
-      case R_IR: mb.readIreg(SLAVE_ID, REG_IR, regBuf, 2, cb); break;
-      case R_IY: mb.readIreg(SLAVE_ID, REG_IY, regBuf, 2, cb); break;
-      case R_IB: mb.readIreg(SLAVE_ID, REG_IB, regBuf, 2, cb); break;
-      case R_PF: mb.readIreg(SLAVE_ID, REG_PF, regBuf, 2, cb); break;
-      case R_FREQ: mb.readIreg(SLAVE_ID, REG_FREQ, regBuf, 2, cb); break;
+      case R_VR:     mb.readIreg(SLAVE_ID, REG_VR, regBuf, 2, cb); break;
+      case R_VY:     mb.readIreg(SLAVE_ID, REG_VY, regBuf, 2, cb); break;
+      case R_VB:     mb.readIreg(SLAVE_ID, REG_VB, regBuf, 2, cb); break;
+      case R_RY:     mb.readIreg(SLAVE_ID, REG_RY, regBuf, 2, cb); break;
+      case R_YB:     mb.readIreg(SLAVE_ID, REG_YB, regBuf, 2, cb); break;
+      case R_BR:     mb.readIreg(SLAVE_ID, REG_BR, regBuf, 2, cb); break;
+      case R_IR:     mb.readIreg(SLAVE_ID, REG_IR, regBuf, 2, cb); break;
+      case R_IY:     mb.readIreg(SLAVE_ID, REG_IY, regBuf, 2, cb); break;
+      case R_IB:     mb.readIreg(SLAVE_ID, REG_IB, regBuf, 2, cb); break;
+      case R_PF:     mb.readIreg(SLAVE_ID, REG_PF, regBuf, 2, cb); break;
+      case R_FREQ:   mb.readIreg(SLAVE_ID, REG_FREQ, regBuf, 2, cb); break;
       case R_ENERGY: mb.readIreg(SLAVE_ID, REG_ENERGY, regBuf, 2, cb); break;
     }
   }
 
-  /* ---- Send after complete cycle ---- */
+  /* ---- Send Telemetry after complete cycle ---- */
   if (cycleComplete && millis() - lastSend > 5000) {
     lastSend = millis();
     cycleComplete = false;
     sendData();
+  }
+
+  /* ---- Send Standalone Heartbeat if idle / Modbus down ---- */
+  if (millis() - lastHeartbeat >= HEARTBEAT_INTERVAL) {
+    lastHeartbeat = millis();
+    sendHeartbeat();
   }
 }
