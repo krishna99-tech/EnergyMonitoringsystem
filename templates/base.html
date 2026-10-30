@@ -535,6 +535,55 @@
       }
     }
 
+        /* ── Date Range Selection Notice Pill ── */
+    .date-selection-notice {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--text);
+      margin-top: 10px;
+      transition: all 0.25s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      width: fit-content;
+    }
+    .date-selection-notice i {
+      color: var(--accent);
+      font-size: 0.85rem;
+    }
+    .date-selection-notice strong {
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+    }
+    .date-selection-notice .prod-hours-tag {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-left: 4px;
+      opacity: 0.85;
+    }
+    @media (max-width: 600px) {
+      .date-selection-notice {
+        width: 100% !important;
+        font-size: 0.74rem !important;
+        padding: 8px 10px !important;
+        box-sizing: border-box;
+        line-height: 1.4;
+      }
+      .date-selection-notice .prod-hours-tag {
+        display: inline-block;
+        font-size: 0.68rem !important;
+      }
+    }
+
     /* ── Sidebar overlay ──────────────────────────────────────── */
     .sidebar-overlay {
       position: fixed; inset: 0;
@@ -1156,6 +1205,46 @@
 
 <!-- ══ BASE SCRIPTS ════════════════════════════════════════════════ -->
 <script>
+/* ── Universal Date Selection Notice Helper ── */
+function updateDateSelectionNotice(noticeId, startVal, endVal) {
+  const el = document.getElementById(noticeId);
+  if (!el) return;
+  if (!startVal && !endVal) {
+    el.innerHTML = `<i class="fa-regular fa-calendar-check"></i> <span>You have selected all historical records</span>`;
+    return;
+  }
+  const s = startVal || 'Earliest';
+  const e = endVal || 'Latest';
+  el.innerHTML = `<i class="fa-regular fa-calendar-check"></i> <span>You have selected from <strong>${s}</strong> to <strong>${e}</strong> <span class="prod-hours-tag">(06:30 AM to 06:30 AM)</span></span>`;
+}
+window.updateDateSelectionNotice = updateDateSelectionNotice;
+
+/* ── Global Production Day Helper (06:30 AM to Next Day 06:30 AM) ── */
+function getProductionDayString(d) {
+  const dateObj = d ? new Date(d) : new Date();
+  const mins = dateObj.getHours() * 60 + dateObj.getMinutes();
+  if (mins < 390) { // Before 06:30 AM belongs to previous date
+    dateObj.setDate(dateObj.getDate() - 1);
+  }
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+window.getProductionDayString = getProductionDayString;
+
+function getNextProductionDayString(d) {
+  const prodStr = getProductionDayString(d);
+  const parts = prodStr.split('-');
+  const dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  dateObj.setDate(dateObj.getDate() + 1);
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+window.getNextProductionDayString = getNextProductionDayString;
+
 /* ── Clock ──────────────────────────────────────────────────────── */
 const clockEl = document.getElementById('live-clock');
 function updateClock() {

@@ -331,19 +331,25 @@
 
       <div class="filter-group">
         <label><i class="fa-solid fa-calendar-day"></i> Start Date</label>
-        <input type="date" id="report-start" />
+        <input type="date" id="report-start" onchange="syncReportsNotice()" />
       </div>
 
       <div class="filter-group">
         <label><i class="fa-solid fa-calendar-day"></i> End Date</label>
-        <input type="date" id="report-end" />
+        <input type="date" id="report-end" onchange="syncReportsNotice()" />
       </div>
+    </div>
+
+    <!-- User Date Selection Notice -->
+    <div class="date-selection-notice" id="reports-date-notice" style="margin-bottom: 16px;">
+      <i class="fa-regular fa-calendar-check"></i>
+      <span>You have selected from <strong id="rep-notice-start">--</strong> to <strong id="rep-notice-end">--</strong> <span class="prod-hours-tag">(06:30 AM to 06:30 AM)</span></span>
     </div>
 
     <div class="filter-actions">
       <div class="quick-presets">
-        <button class="btn-preset active" data-preset="all">Full History</button>
-        <button class="btn-preset" data-preset="today">Today</button>
+        <button class="btn-preset" data-preset="all">Full History</button>
+        <button class="btn-preset active" data-preset="today">Today</button>
         <button class="btn-preset" data-preset="7d">Last 7 Days</button>
         <button class="btn-preset" data-preset="30d">Last 30 Days</button>
       </div>
@@ -497,10 +503,13 @@
           sel.appendChild(opt);
         });
 
-        // If previously selected device in localStorage, set it
-        const savedIp = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
+        // URL parameter takes priority over localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlIp = urlParams.get('ip');
+        const savedIp = (urlIp !== null && urlIp !== undefined && urlIp !== '') ? urlIp : localStorage.getItem('selected_ip');
         if (savedIp) {
-          sel.value = savedIp;
+          sel.value = String(savedIp);
+          localStorage.setItem('selected_ip', String(savedIp));
         }
       }
     } catch(e) {}
@@ -652,7 +661,7 @@
     tbody.innerHTML = '';
 
     if (!dailyList || !dailyList.length) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 24px;">No records found for this period.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 28px;"><i class="fa-solid fa-circle-info" style="color: var(--accent); margin-right: 8px;"></i>No telemetry recorded yet for this date window. Click <strong>Last 7 Days</strong> or <strong>Full History</strong> above to view past records, or run <code>simulate_sensors.py</code> for live readings.</td></tr>';
       return;
     }
 
@@ -682,6 +691,12 @@
     document.getElementById('tbl-foot-c').innerText = `${formatNum(cTotal)} kWh`;
     document.getElementById('tbl-foot-total').innerText = `${formatNum(grandTotal)} kWh`;
     document.getElementById('tbl-foot-summary').innerText = `Across ${dailyList.length} date entries`;
+  }
+
+  function syncReportsNotice() {
+    const s = document.getElementById('report-start').value;
+    const e = document.getElementById('report-end').value;
+    window.updateDateSelectionNotice('reports-date-notice', s, e);
   }
 
   async function calculateConsumption() {
@@ -741,28 +756,35 @@
       btn.classList.add('active');
 
       const preset = btn.dataset.preset;
-      const today = new Date();
-      const endStr = today.toISOString().slice(0, 10);
+      const getProdDate = (d) => window.getProductionDayString ? window.getProductionDayString(d) : (() => {
+        const dt = d ? new Date(d) : new Date();
+        if (dt.getHours() * 60 + dt.getMinutes() < 390) dt.setDate(dt.getDate() - 1);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+      })();
+
+      const endStr = getProdDate();
 
       if (preset === 'today') {
+        const nextStr = window.getNextProductionDayString ? window.getNextProductionDayString() : endStr;
         document.getElementById('report-start').value = endStr;
-        document.getElementById('report-end').value = endStr;
+        document.getElementById('report-end').value = nextStr;
       } else if (preset === '7d') {
-        const d = new Date(today);
+        const d = new Date();
         d.setDate(d.getDate() - 7);
-        document.getElementById('report-start').value = d.toISOString().slice(0, 10);
+        document.getElementById('report-start').value = getProdDate(d);
         document.getElementById('report-end').value = endStr;
       } else if (preset === '30d') {
-        const d = new Date(today);
+        const d = new Date();
         d.setDate(d.getDate() - 30);
-        document.getElementById('report-start').value = d.toISOString().slice(0, 10);
+        document.getElementById('report-start').value = getProdDate(d);
         document.getElementById('report-end').value = endStr;
       } else {
         // Full history
         document.getElementById('report-start').value = '';
         document.getElementById('report-end').value = '';
       }
-      calculateConsumption();
+      syncReportsNotice();
+    calculateConsumption();
     });
   });
 
@@ -810,6 +832,15 @@
   // Initialization
   (async function() {
     await loadDevicesSelector();
+    const curToday = window.getProductionDayString ? window.getProductionDayString() : '';
+    const curTomorrow = window.getNextProductionDayString ? window.getNextProductionDayString() : '';
+    if (curToday && !document.getElementById('report-start').value) {
+      document.getElementById('report-start').value = curToday;
+    }
+    if (curTomorrow && !document.getElementById('report-end').value) {
+      document.getElementById('report-end').value = curTomorrow;
+    }
+    syncReportsNotice();
     await calculateConsumption();
   })();
 </script>

@@ -1,9 +1,10 @@
- // ============================================================
-//  ESP32 Modbus RTU MASTER
+// ============================================================
+//  ESP32 Modbus RTU MASTER (Dual Meter with Heartbeat & Status LED)
 //  Works identically with:
 //    • Real MFM384 energy meters (Slave 1 & 2)
 //    • ESP32 slave simulators (slave1.ino / slave2.ino)
-//  No changes needed to swap between real and simulated slaves.
+//  Features: Dual Modbus RTU reading, UDP Telemetry, Heartbeat monitoring, and Status LED Pulse
+//  Integrated with ELFORGE Energy Monitoring System
 // ============================================================
 
 #include <WiFi.h>
@@ -23,7 +24,7 @@ WiFiUDP udp;
 
 /* ================= SERVER CONFIG ================= */
 IPAddress SERVER_IP(192, 168, 29, 139);
-const uint16_t UDP_PORT = 50003;
+const uint16_t UDP_PORT = 50004; // Matches app.py UDP_PORT (50004)
 
 /* ================= RS485 PINS ================= */
 #define RXD2    32
@@ -34,6 +35,19 @@ const uint16_t UDP_PORT = 50003;
 // To add more slaves: add ID here, increase meter[] size, add PHASE entries
 #define SLAVE_ID_1  1
 #define SLAVE_ID_2  2
+
+/* ================= HEARTBEAT & STATUS LED ================= */
+#define LED_HEARTBEAT       2        // Onboard LED (GPIO 2 on most ESP32 dev boards)
+#define HEARTBEAT_INTERVAL  10000    // Send UDP heartbeat ping every 10 seconds
+#define LED_BLINK_NORMAL    1000     // 1s blink when WiFi is connected
+#define LED_BLINK_FAST      200      // 200ms rapid blink when WiFi is disconnected
+
+unsigned long lastHeartbeat = 0;
+unsigned long lastLedBlink  = 0;
+bool ledState = false;
+uint32_t heartbeatSeq = 0;
+bool modbusHealthy1 = false;
+bool modbusHealthy2 = false;
 
 /* ================= MFM384 REGISTER MAP ================= */
 #define REG_VR      0
@@ -110,9 +124,15 @@ bool cb(Modbus::ResultCode e, uint16_t, void*) {
   if (e != Modbus::EX_SUCCESS) {
     Serial.printf("❌ Modbus error on Slave %d, state %d: 0x%02X\n",
                   activeMeter + 1, regState, e);
+    if (activeMeter == 0) modbusHealthy1 = false;
+    else modbusHealthy2 = false;
+
     regState = (ReadState)((regState + 1) % R_TOTAL_STATES);
     return true;
   }
+
+  if (activeMeter == 0) modbusHealthy1 = true;
+  else modbusHealthy2 = true;
 
   float v = decodeDCBA(regBuf[0], regBuf[1]);
   MeterData& m = meter[activeMeter];
@@ -141,10 +161,10 @@ bool cb(Modbus::ResultCode e, uint16_t, void*) {
   return true;
 }
 
-/* ================= SEND COMBINED UDP ================= */
+/* ================= SEND COMBINED UDP TELEMETRY ================= */
 void sendData() {
   Serial.println("\n==============================");
-  Serial.println("📤 Sending combined data...");
+  Serial.println("📤 Sending combined telemetry...");
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("❌ WiFi not connected → skipped");
@@ -158,22 +178,24 @@ void sendData() {
   char json[1024];
   snprintf(json, sizeof(json),
     "{"
-      "\"slave1\":{"
-        "\"energy\":%.2f,\"power_factor\":%.3f,\"frequency\":%.2f,"
-        "\"vr\":%.2f,\"vy\":%.2f,\"vb\":%.2f,"
-        "\"ry\":%.2f,\"yb\":%.2f,\"br\":%.2f,"
-        "\"ir\":%.2f,\"iy\":%.2f,\"ib\":%.2f"
+      ""device_ip":"%s","
+      ""slave1":{"
+        ""slave_id":%d,"energy":%.2f,"power_factor":%.3f,"frequency":%.2f,"
+        ""vr":%.2f,"vy":%.2f,"vb":%.2f,"
+        ""ry":%.2f,"yb":%.2f,"br":%.2f,"
+        ""ir":%.2f,"iy":%.2f,"ib":%.2f"
       "},"
-      "\"slave2\":{"
-        "\"energy\":%.2f,\"power_factor\":%.3f,\"frequency\":%.2f,"
-        "\"vr\":%.2f,\"vy\":%.2f,\"vb\":%.2f,"
-        "\"ry\":%.2f,\"yb\":%.2f,\"br\":%.2f,"
-        "\"ir\":%.2f,\"iy\":%.2f,\"ib\":%.2f"
+      ""slave2":{"
+        ""slave_id":%d,"energy":%.2f,"power_factor":%.3f,"frequency":%.2f,"
+        ""vr":%.2f,"vy":%.2f,"vb":%.2f,"
+        ""ry":%.2f,"yb":%.2f,"br":%.2f,"
+        ""ir":%.2f,"iy":%.2f,"ib":%.2f"
       "}"
     "}",
-    m1.energy, m1.power_factor, m1.frequency,
+    WiFi.localIP().toString().c_str(),
+    SLAVE_ID_1, m1.energy, m1.power_factor, m1.frequency,
     m1.vr, m1.vy, m1.vb, m1.ry, m1.yb, m1.br, m1.ir, m1.iy, m1.ib,
-    m2.energy, m2.power_factor, m2.frequency,
+    SLAVE_ID_2, m2.energy, m2.power_factor, m2.frequency,
     m2.vr, m2.vy, m2.vb, m2.ry, m2.yb, m2.br, m2.ir, m2.iy, m2.ib
   );
 
@@ -182,25 +204,108 @@ void sendData() {
 
   udp.beginPacket(SERVER_IP, UDP_PORT);
   udp.print(json);
-  Serial.println(udp.endPacket() ? "✅ Sent OK" : "❌ Send FAILED");
+
+  if (udp.endPacket()) {
+    Serial.println("✅ UDP Packet Sent Successfully");
+    lastHeartbeat = millis(); // Reset heartbeat timer since live telemetry was sent
+  } else {
+    Serial.println("❌ UDP Packet Send FAILED");
+  }
+
   Serial.printf("📡 → %s:%d\n", SERVER_IP.toString().c_str(), UDP_PORT);
   Serial.println("==============================\n");
 }
 
-/* ================= WIFI ================= */
+/* ================= SEND UDP HEARTBEAT ================= */
+void sendHeartbeat() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  heartbeatSeq++;
+
+  // 1. Heartbeat for Slave 1
+  char hbJson1[256];
+  snprintf(hbJson1, sizeof(hbJson1),
+    "{\"type\":\"heartbeat\","
+    "\"device_ip\":\"%s\","
+    "\"slave_id\":%d,"
+    "\"seq\":%lu,"
+    "\"uptime_sec\":%lu,"
+    "\"rssi\":%d,"
+    "\"modbus_ok\":%s}",
+    WiFi.localIP().toString().c_str(),
+    SLAVE_ID_1,
+    heartbeatSeq,
+    millis() / 1000,
+    WiFi.RSSI(),
+    modbusHealthy1 ? "true" : "false"
+  );
+  udp.beginPacket(SERVER_IP, UDP_PORT);
+  udp.print(hbJson1);
+  udp.endPacket();
+
+  // 2. Heartbeat for Slave 2
+  char hbJson2[256];
+  snprintf(hbJson2, sizeof(hbJson2),
+    "{\"type\":\"heartbeat\","
+    "\"device_ip\":\"%s\","
+    "\"slave_id\":%d,"
+    "\"seq\":%lu,"
+    "\"uptime_sec\":%lu,"
+    "\"rssi\":%d,"
+    "\"modbus_ok\":%s}",
+    WiFi.localIP().toString().c_str(),
+    SLAVE_ID_2,
+    heartbeatSeq,
+    millis() / 1000,
+    WiFi.RSSI(),
+    modbusHealthy2 ? "true" : "false"
+  );
+  udp.beginPacket(SERVER_IP, UDP_PORT);
+  udp.print(hbJson2);
+  udp.endPacket();
+
+  Serial.printf("💓 Heartbeat (#%lu) | RSSI: %d dBm | Slave 1 Modbus: %s | Slave 2 Modbus: %s\n",
+                heartbeatSeq, WiFi.RSSI(),
+                modbusHealthy1 ? "OK" : "TIMEOUT",
+                modbusHealthy2 ? "OK" : "TIMEOUT");
+}
+
+/* ================= VISUAL LED HEARTBEAT ================= */
+void updateLedHeartbeat() {
+  unsigned long now = millis();
+  unsigned long blinkInterval = (WiFi.status() == WL_CONNECTED) ? LED_BLINK_NORMAL : LED_BLINK_FAST;
+
+  if (now - lastLedBlink >= blinkInterval) {
+    lastLedBlink = now;
+    ledState = !ledState;
+    digitalWrite(LED_HEARTBEAT, ledState);
+  }
+}
+
+/* ================= WIFI SETUP ================= */
 void setupWiFi() {
   WiFi.mode(WIFI_STA);
   if (!WiFi.config(localIP, gateway, subnet, dns))
     Serial.println("❌ Static IP config failed");
+
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.print("Connecting WiFi");
-  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    digitalWrite(LED_HEARTBEAT, !digitalRead(LED_HEARTBEAT)); // Toggle LED while waiting
+  }
+
+  digitalWrite(LED_HEARTBEAT, HIGH);
   Serial.printf("\n✅ WiFi Connected — IP: %s\n\n", WiFi.localIP().toString().c_str());
 }
 
+/* ================= AUTO WIFI RECONNECT ================= */
 void checkWiFi() {
   if (millis() - lastWifiCheck < 5000) return;
   lastWifiCheck = millis();
+
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("🔄 Reconnecting WiFi...");
     WiFi.disconnect();
@@ -212,8 +317,11 @@ void checkWiFi() {
 void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("\n🚀 ESP32 Modbus RTU MASTER");
+  Serial.println("\n🚀 ESP32 Modbus RTU MASTER (Dual Meter with Heartbeat)");
   Serial.println("   Works with real MFM384 meters OR ESP32 slave simulators\n");
+
+  pinMode(LED_HEARTBEAT, OUTPUT);
+  digitalWrite(LED_HEARTBEAT, LOW);
 
   pinMode(DE_RE, OUTPUT);
   digitalWrite(DE_RE, LOW);
@@ -234,6 +342,7 @@ void setup() {
 void loop() {
   mb.task();
   checkWiFi();
+  updateLedHeartbeat(); // Keep visual hardware LED pulse running
 
   switch (devicePhase) {
 
@@ -308,5 +417,11 @@ void loop() {
       devicePhase = PHASE_SLAVE1;
       Serial.println("📋 Phase: Slave 1\n");
       break;
+  }
+
+  /* ---- Send Standalone Heartbeat if idle / Modbus down ---- */
+  if (millis() - lastHeartbeat >= HEARTBEAT_INTERVAL) {
+    lastHeartbeat = millis();
+    sendHeartbeat();
   }
 }

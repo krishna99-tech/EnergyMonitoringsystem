@@ -259,6 +259,12 @@
         border-radius: 16px;
         gap: 14px;
       }
+      .controls-main-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 14px !important;
+        width: 100% !important;
+      }
       .filter-bar {
         display: grid !important;
         grid-template-columns: 1fr 1fr !important;
@@ -269,8 +275,13 @@
         min-width: 0 !important;
         width: 100% !important;
       }
+      .filter-item.item-shift,
       .filter-item:first-child {
-        grid-column: 1 / -1; /* Shift spans both columns */
+        grid-column: 1 / -1 !important; /* Shift spans full width */
+      }
+      .filter-item.item-limit {
+        grid-column: 1 / -1 !important; /* Limit spans full width */
+        width: 100% !important;
       }
       .filter-item input,
       .filter-item select {
@@ -283,6 +294,12 @@
         flex-direction: column !important;
         width: 100% !important;
         gap: 10px !important;
+      }
+      .date-selection-notice {
+        width: 100% !important;
+        font-size: 0.74rem !important;
+        padding: 8px 12px !important;
+        box-sizing: border-box;
       }
       .btn-group {
         display: grid !important;
@@ -418,31 +435,43 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 18px 22px;
+      padding: 20px 24px;
       margin-bottom: 24px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.06);
       display: flex;
       flex-direction: column;
       gap: 16px;
     }
-    @media (min-width: 1200px) {
-      .controls {
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-      }
+    .controls-main-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
     }
     .filter-bar {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
+      flex-wrap: nowrap;
+      align-items: flex-end;
       gap: 14px;
+      flex: 1;
     }
     .filter-item {
       display: flex;
       flex-direction: column;
       gap: 6px;
+    }
+    .filter-item.item-shift {
+      flex: 1.2;
       min-width: 130px;
+    }
+    .filter-item.item-date {
+      flex: 1.1;
+      min-width: 135px;
+    }
+    .filter-item.item-limit {
+      width: 90px;
+      flex-shrink: 0;
     }
     .filter-item label {
       font-size: 0.68rem;
@@ -453,6 +482,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      white-space: nowrap;
     }
     .filter-item label i {
       color: var(--accent);
@@ -468,6 +498,8 @@
       font-family: inherit;
       font-size: 0.85rem;
       min-height: 40px;
+      width: 100%;
+      box-sizing: border-box;
       transition: all 0.2s;
     }
     .filter-item select:focus, .filter-item input:focus {
@@ -478,9 +510,9 @@
     }
     .action-row {
       display: flex;
-      flex-wrap: wrap;
-      align-items: flex-end;
-      gap: 12px;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
     }
     .btn-group { display: flex; gap: 8px; }
     
@@ -610,38 +642,7 @@
       margin-left: 6px;
     }
   
-    /* ── Mobile Telemetry Table & Card Feed ── */
-    .table-view-switcher {
-      display: inline-flex;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 3px;
-      gap: 3px;
-    }
-    .view-switch-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border-radius: 9px;
-      font-size: 0.76rem;
-      font-weight: 700;
-      color: var(--text-muted);
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      font-family: inherit;
-    }
-    .view-switch-btn:hover {
-      color: var(--text);
-    }
-    .view-switch-btn.active {
-      background: var(--accent);
-      color: #0b0f1a;
-      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.3);
-    }
+    /* Sticky First Column for Table on Mobile Horizontal Swipe */
     .table-swipe-hint {
       display: none;
       font-size: 0.72rem;
@@ -660,8 +661,6 @@
         display: flex;
       }
     }
-
-    /* Sticky First Column for Table on Mobile Horizontal Swipe */
     #data-table th:first-child,
     #data-table td:first-child {
       position: sticky;
@@ -678,106 +677,6 @@
     }
     #data-table tbody tr:hover td:first-child {
       background: var(--surface-2);
-    }
-
-    /* Mobile Telemetry Log Cards */
-    .mobile-log-cards {
-      display: none;
-      flex-direction: column;
-      gap: 12px;
-      width: 100%;
-    }
-    .log-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 16px 14px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      transition: all 0.2s ease;
-    }
-    .log-card:hover {
-      border-color: var(--border-glow);
-      transform: translateY(-2px);
-    }
-    .log-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--border);
-    }
-    .log-time {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .log-time i {
-      color: var(--accent);
-      font-size: 0.75rem;
-    }
-    .log-main-metrics {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      background: var(--surface-2);
-      border-radius: 12px;
-      padding: 10px 8px;
-      text-align: center;
-    }
-    .log-metric-col {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .log-metric-lbl {
-      font-size: 0.64rem;
-      font-weight: 700;
-      color: var(--text-muted);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .log-metric-val {
-      font-size: 1.05rem;
-      font-weight: 800;
-      color: var(--text);
-    }
-    .log-metric-val small {
-      font-size: 0.65rem;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-    .log-registers-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px 10px;
-      font-size: 0.74rem;
-    }
-    .log-reg-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(255, 255, 255, 0.02);
-      padding: 4px 6px;
-      border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
-    }
-    .log-reg-k {
-      color: var(--text-muted);
-      font-weight: 600;
-      font-size: 0.68rem;
-    }
-    .log-reg-v {
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 700;
-      color: var(--text);
     }
 
 
@@ -837,49 +736,58 @@
       </div>
     </div>
     <div class="controls">
-      <div class="filter-bar">
-        <div class="filter-item" style="flex: 1; min-width: 140px;">
-          <label><i class="fa-solid fa-clock-rotate-left"></i> SHIFT</label>
-          <select id="shift">
-            <option value="ALL">All Shifts</option>
-            <option value="A">Shift A</option>
-            <option value="B">Shift B</option>
-            <option value="C">Shift C</option>
-          </select>
+      <div class="controls-main-row">
+        <!-- Input Filters -->
+        <div class="filter-bar">
+          <div class="filter-item item-shift">
+            <label><i class="fa-solid fa-clock-rotate-left"></i> SHIFT</label>
+            <select id="shift">
+              <option value="ALL">All Shifts</option>
+              <option value="A">Shift A</option>
+              <option value="B">Shift B</option>
+              <option value="C">Shift C</option>
+            </select>
+          </div>
+          <div class="filter-item item-date">
+            <label><i class="fa-solid fa-calendar-day"></i> START DATE</label>
+            <input type="date" id="start" onchange="syncDashboardNotice()" />
+          </div>
+          <div class="filter-item item-date">
+            <label><i class="fa-solid fa-calendar-day"></i> END DATE</label>
+            <input type="date" id="end" onchange="syncDashboardNotice()" />
+          </div>
+          <div class="filter-item item-limit">
+            <label><i class="fa-solid fa-list-ol"></i> LIMIT</label>
+            <input type="number" id="limit" min="1" value="50" />
+          </div>
         </div>
-        <div class="filter-item">
-          <label><i class="fa-solid fa-calendar-day"></i> START DATE</label>
-          <input type="date" id="start" />
-        </div>
-        <div class="filter-item">
-          <label><i class="fa-solid fa-calendar-day"></i> END DATE</label>
-          <input type="date" id="end" />
-        </div>
-        <div class="filter-item" style="width: 100px;">
-          <label><i class="fa-solid fa-list-ol"></i> LIMIT</label>
-          <input type="number" id="limit" min="1" value="50" />
-        </div>
-      </div>
 
-      <div class="action-row">
-        <div class="btn-group">
-          <button class="btn btn-primary" id="btn-load">
-            <i class="fa-solid fa-magnifying-glass"></i> LOAD DATA
-          </button>
-          <button class="btn btn-secondary" id="btn-all">
-            <i class="fa-solid fa-clock"></i> ALL RECORDS
-          </button>
-        </div>
-        
-        <div style="display: flex; gap: 12px; align-items: center;">
+        <!-- Action Buttons -->
+        <div class="action-row">
+          <div class="btn-group">
+            <button class="btn btn-primary" id="btn-load">
+              <i class="fa-solid fa-magnifying-glass"></i> LOAD DATA
+            </button>
+            <button class="btn btn-secondary" id="btn-all">
+              <i class="fa-solid fa-clock"></i> ALL RECORDS
+            </button>
+          </div>
+          
           <label class="live-toggle">
             <input type="checkbox" id="use-live-table" checked /> 
             <span><i class="fa-solid fa-tower-broadcast"></i> LIVE STREAM</span>
           </label>
+
           <button class="btn btn-download-csv" id="btn-download">
             <i class="fa-solid fa-download"></i> DOWNLOAD CSV
           </button>
         </div>
+      </div>
+
+      <!-- User Date Selection Notice (Full Width Across the Bottom of the Card) -->
+      <div class="date-selection-notice" id="dashboard-date-notice">
+        <i class="fa-regular fa-calendar-check"></i>
+        <span>You have selected from <strong id="dash-notice-start">--</strong> to <strong id="dash-notice-end">--</strong> <span class="prod-hours-tag">(06:30 AM to 06:30 AM)</span></span>
       </div>
     </div>
 
@@ -976,18 +884,8 @@
         </div>
         <div class="section-subtitle">Historical and live raw register telemetry readings with cumulative period summary totals</div>
       </div>
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <div class="table-view-switcher">
-          <button class="view-switch-btn active" id="btn-view-cards" onclick="setTableViewMode('cards')">
-            <i class="fa-solid fa-layer-group"></i> <span>Cards Feed</span>
-          </button>
-          <button class="view-switch-btn" id="btn-view-table" onclick="setTableViewMode('table')">
-            <i class="fa-solid fa-table-cells"></i> <span>Wide Table</span>
-          </button>
-        </div>
-        <div class="table-label" style="margin-bottom: 0;">
-          Mode: <span class="badge" id="table-mode">Live Stream</span>
-        </div>
+      <div class="table-label" style="margin-bottom: 0;">
+        Table Mode: <span class="badge" id="table-mode">Live Table</span>
       </div>
     </div>
 
@@ -997,8 +895,7 @@
       <span>Swipe horizontally to inspect all 14 electrical registers (Timestamp column stays pinned).</span>
     </div>
 
-    <!-- Table Container -->
-    <div class="table-wrap" id="table-wrap-container">
+    <div class="table-wrap">
       <table id="data-table">
         <thead>
           <tr>
@@ -1034,11 +931,6 @@
           </tr>
         </tfoot>
       </table>
-    </div>
-
-    <!-- Mobile Responsive Card Feed Container -->
-    <div class="mobile-log-cards" id="mobile-log-cards">
-      <!-- Populated via renderTable / renderCardFeed -->
     </div>
 
 
@@ -1081,55 +973,15 @@
       };
     }
 
-    let currentViewMode = window.innerWidth <= 900 ? 'cards' : 'table';
-    const storedViewMode = localStorage.getItem('dashboard_view_mode');
-    if (storedViewMode) currentViewMode = storedViewMode;
-
-    function setTableViewMode(mode) {
-      currentViewMode = mode;
-      localStorage.setItem('dashboard_view_mode', mode);
-      applyViewModeUI();
-    }
-
-    function applyViewModeUI() {
-      const btnCards = document.getElementById('btn-view-cards');
-      const btnTable = document.getElementById('btn-view-table');
-      const tableWrap = document.getElementById('table-wrap-container');
-      const cardsWrap = document.getElementById('mobile-log-cards');
-      const swipeHint = document.getElementById('table-swipe-hint');
-      
-      if (currentViewMode === 'cards') {
-        btnCards && btnCards.classList.add('active');
-        btnTable && btnTable.classList.remove('active');
-        if (tableWrap) tableWrap.style.display = 'none';
-        if (cardsWrap) cardsWrap.style.display = 'flex';
-        if (swipeHint) swipeHint.style.display = 'none';
-      } else {
-        btnCards && btnCards.classList.remove('active');
-        btnTable && btnTable.classList.add('active');
-        if (tableWrap) tableWrap.style.display = 'block';
-        if (cardsWrap) cardsWrap.style.display = 'none';
-        if (swipeHint && window.innerWidth <= 900) swipeHint.style.display = 'flex';
-      }
-    }
-
     function renderTable(rows) {
       tableBody.innerHTML = '';
-      const cardsWrap = document.getElementById('mobile-log-cards');
-      if (cardsWrap) cardsWrap.innerHTML = '';
-
       if (!rows || !rows.length) {
         tableBody.innerHTML = '<tr><td colspan="14" style="text-align: center; padding: 24px; color: var(--text-dim);">No records found for current filter.</td></tr>';
-        if (cardsWrap) {
-          cardsWrap.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-muted); background: var(--surface); border-radius: 14px; border: 1px solid var(--border);">No records found for current filter.</div>';
-        }
         return;
       }
       
       rows.forEach(rawRow => {
         const row = normalizeRow(rawRow);
-        
-        // 1. Render Table Row (with sticky time column)
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${row.TIMESTAMP || '-'}</td>
@@ -1148,49 +1000,7 @@
           <td>${formatNum(row.IB, 2)}</td>
         `;
         tableBody.appendChild(tr);
-
-        // 2. Render Responsive Mobile Log Card
-        if (cardsWrap) {
-          const cardDiv = document.createElement('div');
-          cardDiv.className = 'log-card';
-          
-          let shiftColor = '#38bdf8';
-          if (row.SHIFT === 'B') shiftColor = '#fbbf24';
-          if (row.SHIFT === 'C') shiftColor = '#a78bfa';
-
-          cardDiv.innerHTML = `
-            <div class="log-card-header">
-              <span class="log-time"><i class="fa-regular fa-clock"></i> ${row.TIMESTAMP || '-'}</span>
-              <span class="badge" style="background: ${shiftColor}20; color: ${shiftColor}; border: 1px solid ${shiftColor}40;">SHIFT ${row.SHIFT || '-'}</span>
-            </div>
-            <div class="log-main-metrics">
-              <div class="log-metric-col">
-                <span class="log-metric-lbl">TOTAL ENERGY</span>
-                <span class="log-metric-val" style="color: #34d399;">${formatNum(row.ENERGY, 1)} <small>kWh</small></span>
-              </div>
-              <div class="log-metric-col">
-                <span class="log-metric-lbl">POWER FACTOR</span>
-                <span class="log-metric-val">${formatNum(row.POWER_FACTOR, 3)}</span>
-              </div>
-              <div class="log-metric-col">
-                <span class="log-metric-lbl">FREQUENCY</span>
-                <span class="log-metric-val">${formatNum(row.FREQUENCY, 2)} <small>Hz</small></span>
-              </div>
-            </div>
-            <div class="log-registers-grid">
-              <div class="log-reg-item"><span class="log-reg-k">V-RN</span><span class="log-reg-v">${formatNum(row.VR, 1)}V</span></div>
-              <div class="log-reg-item"><span class="log-reg-k">V-YN</span><span class="log-reg-v">${formatNum(row.VY, 1)}V</span></div>
-              <div class="log-reg-item"><span class="log-reg-k">V-BN</span><span class="log-reg-v">${formatNum(row.VB, 1)}V</span></div>
-              <div class="log-reg-item"><span class="log-reg-k">IR</span><span class="log-reg-v" style="color: #ef4444;">${formatNum(row.IR, 2)}A</span></div>
-              <div class="log-reg-item"><span class="log-reg-k">IY</span><span class="log-reg-v" style="color: #fbbf24;">${formatNum(row.IY, 2)}A</span></div>
-              <div class="log-reg-item"><span class="log-reg-k">IB</span><span class="log-reg-v" style="color: #38bdf8;">${formatNum(row.IB, 2)}A</span></div>
-            </div>
-          `;
-          cardsWrap.appendChild(cardDiv);
-        }
       });
-
-      applyViewModeUI();
     }
 
     function getLatestRow(rows) {
@@ -1286,15 +1096,56 @@
       const ctx = document.getElementById('timelineChart');
       if (!ctx) return;
 
-      const labels = (timeline || []).map(p => {
-        const ts = p.timestamp || '';
-        return ts.length > 11 ? ts.substring(11, 16) : ts;
+      const dataPoints = timeline || [];
+      const isMultiDay = dataPoints.some(p => {
+        const first = dataPoints[0] ? (dataPoints[0].timestamp || '').substring(0, 10) : '';
+        return p.timestamp && p.timestamp.substring(0, 10) !== first;
       });
-      const diffValues = (timeline || []).map(p => p.diff || 0);
+
+      let labels = [];
+      let diffValues = [];
+
+      // Production Day hours: 06:30, 07:30, 08:30, 09:30, 10:30, 11:30 ... 06:30
+      if (!isMultiDay) {
+        const slots = [
+          '06:30', '07:30', '08:30', '09:30', '10:30', '11:30',
+          '12:30', '13:30', '14:30', '15:30', '16:30', '17:30',
+          '18:30', '19:30', '20:30', '21:30', '22:30', '23:30',
+          '00:30', '01:30', '02:30', '03:30', '04:30', '05:30', '06:30'
+        ];
+        labels = slots;
+        const slotTotals = new Array(slots.length).fill(0);
+
+        dataPoints.forEach(p => {
+          const ts = p.timestamp || '';
+          if (ts.length >= 16) {
+            const h = parseInt(ts.substring(11, 13), 10);
+            const m = parseInt(ts.substring(14, 16), 10);
+            let minsFrom630 = (h * 60 + m) - (6 * 60 + 30);
+            if (minsFrom630 < 0) minsFrom630 += 24 * 60;
+            const slotIdx = Math.min(slots.length - 1, Math.floor(minsFrom630 / 60));
+            slotTotals[slotIdx] += (p.diff || 0);
+          }
+        });
+
+        diffValues = slotTotals.map(v => Math.round(v * 100) / 100);
+      } else {
+        labels = dataPoints.map(p => {
+          const ts = p.timestamp || '';
+          if (ts.length >= 16) {
+            const parts = ts.substring(0, 10).split('-');
+            return `${parts[2]}/${parts[1]} ${ts.substring(11, 16)}`;
+          }
+          return ts;
+        });
+        diffValues = dataPoints.map(p => Math.round((p.diff || 0) * 100) / 100);
+      }
 
       if (timelineChart) {
         timelineChart.data.labels = labels;
         timelineChart.data.datasets[0].data = diffValues;
+        timelineChart.options.scales.x.ticks.maxTicksLimit = window.innerWidth < 600 ? 7 : 13;
+        timelineChart.options.scales.x.ticks.font.size = window.innerWidth < 600 ? 9 : 10;
         timelineChart.update();
         return;
       }
@@ -1311,8 +1162,11 @@
             borderWidth: 2.5,
             fill: true,
             tension: 0.3,
-            pointRadius: labels.length > 30 ? 0 : 3,
-            pointHoverRadius: 5
+            pointRadius: 4,
+            pointBackgroundColor: '#34d399',
+            pointBorderColor: '#111827',
+            pointBorderWidth: 2,
+            pointHoverRadius: 6
           }]
         },
         options: {
@@ -1322,28 +1176,71 @@
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: (ctx) => `${ctx.parsed.y} kWh in step`
+                title: (items) => {
+                  if (!items.length) return '';
+                  const label = labels[items[0].dataIndex] || '';
+                  return `Time Window: ${label}`;
+                },
+                label: (ctx) => `${ctx.parsed.y} kWh consumed`
               }
             }
           },
           scales: {
             x: {
-              grid: { display: false },
-              ticks: { color: '#94a3b8', maxTicksLimit: 8 }
+              grid: { color: 'rgba(255, 255, 255, 0.04)' },
+              ticks: {
+                color: '#94a3b8',
+                font: { weight: '600', size: window.innerWidth < 600 ? 9 : 10 },
+                maxTicksLimit: window.innerWidth < 600 ? 7 : 13,
+                maxRotation: 0,
+                autoSkip: true,
+                callback: function(val, index) {
+                  return labels[index];
+                }
+              },
+              title: {
+                display: true,
+                text: 'Production Hours Timeline (06:30 AM to 06:30 AM Next Day)',
+                color: '#64748b',
+                font: { size: 11, weight: '700' }
+              }
             },
             y: {
               beginAtZero: true,
               grid: { color: 'rgba(255, 255, 255, 0.05)' },
-              ticks: { color: '#94a3b8' }
+              ticks: {
+                color: '#94a3b8',
+                callback: (val) => val + ' kWh'
+              },
+              title: {
+                display: true,
+                text: 'Energy Consumed (kWh)',
+                color: '#64748b',
+                font: { size: 11, weight: '700' }
+              }
             }
           }
         }
       });
     }
 
+    
+    // Realtime live layout & chart adaptation on window resize / orientation change (no refresh needed)
+    window.addEventListener('resize', () => {
+      if (timelineChart) {
+        timelineChart.options.scales.x.ticks.maxTicksLimit = window.innerWidth < 600 ? 7 : 13;
+        timelineChart.options.scales.x.ticks.font.size = window.innerWidth < 600 ? 9 : 10;
+        timelineChart.resize();
+        timelineChart.update('none');
+      }
+      if (shiftBarChart) {
+        shiftBarChart.resize();
+      }
+    });
+
     /* ── Update Shift Cumulative Energy & Charts ── */
     async function updateShiftSummary() {
-      const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip') || '';
+      const ip = new URLSearchParams(window.location.search).get('ip') || localStorage.getItem('selected_ip') || '';
       const start = document.getElementById('start').value;
       const end = document.getElementById('end').value;
       const shift = document.getElementById('shift').value;
@@ -1457,7 +1354,7 @@
       if (startDate) params.append('start_date', startDate);
       if (endDate) params.append('end_date', endDate);
 
-      const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
+      const ip = new URLSearchParams(window.location.search).get('ip') || localStorage.getItem('selected_ip');
       if (ip) params.append('ip', ip);
 
       try {
@@ -1515,7 +1412,7 @@
         const start = document.getElementById('start').value;
         const end = document.getElementById('end').value;
         const limit = Number(document.getElementById('limit').value) || 500;
-        const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
+        const ip = new URLSearchParams(window.location.search).get('ip') || localStorage.getItem('selected_ip');
         data = { shift, start_date: start, end_date: end, limit, ip };
         filename = `energy_data_${shift}_${start || 'all'}_${end || 'all'}.csv`;
       }
@@ -1552,7 +1449,7 @@
 
     /* ── Live Heartbeat & Online Status Poller ── */
     async function checkDeviceHeartbeat() {
-      const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip') || '1';
+      const ip = new URLSearchParams(window.location.search).get('ip') || localStorage.getItem('selected_ip') || '1';
       try {
         const res = await fetch(`/api/device/status/${encodeURIComponent(ip)}`);
         if (!res.ok) return;
@@ -1586,27 +1483,35 @@
     });
 
     // Helper: Local date string YYYY-MM-DD
+        function syncDashboardNotice() {
+      const s = document.getElementById('start').value;
+      const e = document.getElementById('end').value;
+      window.updateDateSelectionNotice('dashboard-date-notice', s, e);
+    }
+
     function getTodayString() {
-      const d = new Date();
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      return window.getProductionDayString ? window.getProductionDayString() : (() => {
+        const d = new Date();
+        if (d.getHours() * 60 + d.getMinutes() < 390) d.setDate(d.getDate() - 1);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      })();
     }
 
     // Initial setup
     (async function initDashboard() {
-      // Default date range to Today
+      // Default date range to Today's Production Day (Today 06:30 AM to Tomorrow 06:30 AM)
       const todayStr = getTodayString();
+      const tomorrowStr = window.getNextProductionDayString ? window.getNextProductionDayString() : todayStr;
       const startInput = document.getElementById('start');
       const endInput = document.getElementById('end');
       if (startInput && !startInput.value) startInput.value = todayStr;
-      if (endInput && !endInput.value) endInput.value = todayStr;
+      if (endInput && !endInput.value) endInput.value = tomorrowStr;
+      syncDashboardNotice();
       // Fetch shift summary and initial chart data
       await updateShiftSummary();
 
       // If live mode is selected, load latest 10 rows from /api/raw
-      const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip') || '';
+      const ip = new URLSearchParams(window.location.search).get('ip') || localStorage.getItem('selected_ip') || '';
       try {
         const rawResp = await fetch(`/api/raw?limit=10&ip=${encodeURIComponent(ip)}`);
         if (rawResp.ok) {

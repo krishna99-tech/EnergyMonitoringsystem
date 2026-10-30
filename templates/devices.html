@@ -546,8 +546,12 @@
         <div class="form-group">
           <label>Date Range</label>
           <div style="display: flex; gap: 8px;">
-            <input type="date" id="start-date" class="input-control" style="flex: 1; font-size: 0.85rem;">
-            <input type="date" id="end-date" class="input-control" style="flex: 1; font-size: 0.85rem;">
+            <input type="date" id="start-date" class="input-control" style="flex: 1; font-size: 0.85rem;" onchange="syncDevicesNotice()">
+            <input type="date" id="end-date" class="input-control" style="flex: 1; font-size: 0.85rem;" onchange="syncDevicesNotice()">
+          </div>
+          <div class="date-selection-notice" id="devices-date-notice" style="margin-top: 8px; width: 100%;">
+            <i class="fa-regular fa-calendar-check"></i>
+            <span>You have selected from <strong id="dev-notice-start">--</strong> to <strong id="dev-notice-end">--</strong></span>
           </div>
         </div>
 
@@ -624,10 +628,22 @@
   let allDevices = [];
   let selectedShift = 'ALL';
 
-  // Initialize dates to today
-  const today = new Date().toISOString().split('T')[0];
+  function syncDevicesNotice() {
+    const s = document.getElementById('start-date').value;
+    const e = document.getElementById('end-date').value;
+    window.updateDateSelectionNotice('devices-date-notice', s, e);
+  }
+
+  // Initialize dates to current production day (06:30 AM to 06:30 AM next day)
+  const today = window.getProductionDayString ? window.getProductionDayString() : (() => {
+    const d = new Date();
+    if (d.getHours() * 60 + d.getMinutes() < 390) d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+  const tomorrow = window.getNextProductionDayString ? window.getNextProductionDayString() : today;
   document.getElementById('start-date').value = today;
-  document.getElementById('end-date').value = today;
+  document.getElementById('end-date').value = tomorrow;
+  syncDevicesNotice();
 
   function getLineCardStyles(name) {
     const n = (name || '').toLowerCase();

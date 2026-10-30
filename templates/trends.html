@@ -209,11 +209,11 @@
       </div>
       <div class="trend-control">
         <label for="trend-start">Start date</label>
-        <input type="date" id="trend-start" />
+        <input type="date" id="trend-start" onchange="syncTrendsNotice()" />
       </div>
       <div class="trend-control">
         <label for="trend-end">End date</label>
-        <input type="date" id="trend-end" />
+        <input type="date" id="trend-end" onchange="syncTrendsNotice()" />
       </div>
 
       <div class="trend-actions">
@@ -226,6 +226,12 @@
         <button class="btn btn-secondary" data-range="1M">1M</button>
         <button class="btn btn-secondary" data-range="3M">3M</button>
         <button class="btn btn-secondary" data-range="1Y">1Y</button>
+      </div>
+
+      <!-- User Date Selection Notice -->
+      <div class="date-selection-notice" id="trends-date-notice" style="width: 100%; margin-top: 12px;">
+        <i class="fa-regular fa-calendar-check"></i>
+        <span>You have selected from <strong id="tr-notice-start">--</strong> to <strong id="tr-notice-end">--</strong> <span class="prod-hours-tag">(06:30 AM to 06:30 AM)</span></span>
       </div>
     </div>
 
@@ -637,7 +643,7 @@
         end_date: endDate,
         limit: String(limit)
       });
-      const ip = localStorage.getItem('selected_ip') || new URLSearchParams(window.location.search).get('ip');
+      const ip = new URLSearchParams(window.location.search).get('ip') || localStorage.getItem('selected_ip');
       if (ip) params.append('ip', ip);
 
       let resp = await fetch(`/api/raw?${params.toString()}`);
@@ -719,11 +725,23 @@
       btn.addEventListener('click', () => applyPreset(btn.dataset.range));
     });
 
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    document.getElementById('trend-start').value = toLocalDateInput(yesterday);
-    document.getElementById('trend-end').value = toLocalDateInput(today);
+    const getProdDate = (d) => window.getProductionDayString ? window.getProductionDayString(d) : (() => {
+      const dt = d ? new Date(d) : new Date();
+      if (dt.getHours() * 60 + dt.getMinutes() < 390) dt.setDate(dt.getDate() - 1);
+      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    })();
+
+      function syncTrendsNotice() {
+    const s = document.getElementById('trend-start').value;
+    const e = document.getElementById('trend-end').value;
+    window.updateDateSelectionNotice('trends-date-notice', s, e);
+  }
+
+    const prodToday = getProdDate();
+    const prodTomorrow = window.getNextProductionDayString ? window.getNextProductionDayString() : prodToday;
+    document.getElementById('trend-start').value = prodToday;
+    document.getElementById('trend-end').value = prodTomorrow;
+    syncTrendsNotice();
 
     // Use global SSE stream from base.html
     window.addEventListener('sse-data', (e) => {

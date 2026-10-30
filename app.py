@@ -1,6 +1,6 @@
 from flask import Flask, render_template, jsonify, request, send_file, Response, stream_with_context
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import csv
 import io
 from openpyxl import Workbook
@@ -116,6 +116,48 @@ def get_shift_from_time(dt):
         return "B"
     else:
         return "C"
+
+# ================ PRODUCTION DAY HELPERS =================
+# Standard Industrial Day: 06:30:00 AM of date to 06:30:00 AM of next date.
+def get_current_production_date(dt=None):
+    if dt is None:
+        dt = datetime.now()
+    if dt.hour * 60 + dt.minute < 390:  # Before 06:30 AM belongs to previous production day
+        return (dt.date() - timedelta(days=1)).strftime('%Y-%m-%d')
+    return dt.date().strftime('%Y-%m-%d')
+
+
+def get_production_bounds(start_date_str, end_date_str):
+    """
+    Given 'YYYY-MM-DD' start and end, returns (start_timestamp, end_timestamp).
+    If start == end: queries start 06:30:00 to (start + 1 day) 06:30:00.
+    If start != end: queries start 06:30:00 to end 06:30:00.
+    """
+    if not start_date_str or not end_date_str:
+        return None, None
+    s_clean = start_date_str.strip()[:10]
+    e_clean = end_date_str.strip()[:10]
+    start_ts = f"{s_clean} 06:30:00"
+    if s_clean == e_clean:
+        end_dt = datetime.strptime(e_clean, "%Y-%m-%d") + timedelta(days=1)
+        end_ts = f"{end_dt.strftime('%Y-%m-%d')} 06:30:00"
+    else:
+        end_ts = f"{e_clean} 06:30:00"
+    return start_ts, end_ts
+
+
+def get_production_day_from_ts(ts_str):
+    """Returns the production day YYYY-MM-DD for any given timestamp string."""
+    if not ts_str or len(ts_str) < 16:
+        return ts_str[:10] if ts_str else ""
+    try:
+        dt = datetime.strptime(ts_str[:19], "%Y-%m-%d %H:%M:%S")
+        if dt.hour * 60 + dt.minute < 390:
+            return (dt.date() - timedelta(days=1)).strftime("%Y-%m-%d")
+        return dt.date().strftime("%Y-%m-%d")
+    except Exception:
+        return ts_str[:10]
+
 
 
 # -------------------------------------------------------
@@ -495,8 +537,9 @@ def api_raw():
     where = []
 
     if start and end:
-        where.append("DATE(timestamp) BETWEEN ? AND ?")
-        params.extend([start, end])
+        start_ts, end_ts = get_production_bounds(start, end)
+        where.append("timestamp >= ? AND timestamp < ?")
+        params.extend([start_ts, end_ts])
     if shift != "ALL":
         where.append("shift = ?")
         params.append(shift)
@@ -665,8 +708,9 @@ def api_raw_export():
     where = []
 
     if start and end:
-        where.append("DATE(timestamp) BETWEEN ? AND ?")
-        params.extend([start, end])
+        start_ts, end_ts = get_production_bounds(start, end)
+        where.append("timestamp >= ? AND timestamp < ?")
+        params.extend([start_ts, end_ts])
     if shift != "ALL":
         where.append("shift = ?")
         params.append(shift)
@@ -735,12 +779,13 @@ def api_trend(trend_type):
     else:
         return jsonify({"ok": False, "error": "Invalid trend type"}), 400
 
+    start_ts, end_ts = get_production_bounds(start, end)
     query = f"""
         SELECT {', '.join(columns)}
         FROM energy_data
-        WHERE DATE(timestamp) BETWEEN ? AND ?
+        WHERE timestamp >= ? AND timestamp < ?
     """
-    params = [start, end]
+    params = [start_ts, end_ts]
 
     if shift != "ALL":
         query += " AND shift = ?"
@@ -765,9 +810,9 @@ def api_trend(trend_type):
 
 # ================= EXPORT HELPERS =================
 def get_db_date_bounds(device_ip=None, slave_id=None):
-    """Returns (min_date_str, max_date_str) available in energy_data."""
+    """Returns (min_production_date, max_production_date) available in energy_data."""
     with get_db_connection() as conn:
-        q = "SELECT MIN(DATE(timestamp)) as min_dt, MAX(DATE(timestamp)) as max_dt FROM energy_data"
+        q = "SELECT MIN(timestamp) as min_ts, MAX(timestamp) as max_ts FROM energy_data"
         params = []
         where = []
         if device_ip:
@@ -782,10 +827,12 @@ def get_db_date_bounds(device_ip=None, slave_id=None):
         if where:
             q += " WHERE " + " AND ".join(where)
         row = conn.execute(q, params).fetchone()
-        if row and row["max_dt"]:
-            return row["min_dt"] or row["max_dt"], row["max_dt"]
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    return today_str, today_str
+        if row and row["max_ts"]:
+            min_p = get_production_day_from_ts(row["min_ts"])
+            max_p = get_production_day_from_ts(row["max_ts"])
+            return min_p or max_p, max_p
+    today_p = get_current_production_date()
+    return today_p, today_p
 
 
 def fetch_filtered(req_data, allow_default_dates=True):
@@ -811,8 +858,9 @@ def fetch_filtered(req_data, allow_default_dates=True):
     if not start or not end:
         return []
 
-    query = f"SELECT {', '.join(columns)} FROM energy_data WHERE DATE(timestamp) BETWEEN ? AND ?"
-    params = [start, end]
+    start_ts, end_ts = get_production_bounds(start, end)
+    query = f"SELECT {', '.join(columns)} FROM energy_data WHERE timestamp >= ? AND timestamp < ?"
+    params = [start_ts, end_ts]
 
     if shift != "ALL":
         query += " AND shift = ?"
@@ -857,9 +905,9 @@ def api_energy_shifts():
 
     min_dt, max_dt = get_db_date_bounds(device_ip, slave_id)
     if not start:
-        start = min_dt or datetime.now().strftime("%Y-%m-%d")
+        start = min_dt or get_current_production_date()
     if not end:
-        end = max_dt or datetime.now().strftime("%Y-%m-%d")
+        end = max_dt or get_current_production_date()
 
     req_data["start_date"] = start
     req_data["end_date"] = end
@@ -894,7 +942,7 @@ def api_energy_shifts():
                 if 0 < diff < 10000:
                     s = curr.get("shift") or "A"
                     ts = curr.get("timestamp") or ""
-                    dt = ts[:10] if len(ts) >= 10 else start
+                    dt = get_production_day_from_ts(ts) or start
                     
                     total_cons += diff
                     if s in shift_cons:
