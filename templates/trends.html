@@ -200,7 +200,7 @@
     <div class="trend-controls">
       <div class="trend-control">
         <label for="trend-shift">Shift</label>
-        <select id="trend-shift">
+        <select id="trend-shift" onchange="loadTrends('range')">
           <option value="ALL">All</option>
           <option value="A">A</option>
           <option value="B">B</option>
@@ -209,23 +209,16 @@
       </div>
       <div class="trend-control">
         <label for="trend-start">Start date</label>
-        <input type="date" id="trend-start" onchange="syncTrendsNotice()" />
+        <input type="date" id="trend-start" onchange="syncTrendsNotice()" oninput="syncTrendsNotice()" />
       </div>
       <div class="trend-control">
         <label for="trend-end">End date</label>
-        <input type="date" id="trend-end" onchange="syncTrendsNotice()" />
+        <input type="date" id="trend-end" onchange="syncTrendsNotice()" oninput="syncTrendsNotice()" />
       </div>
 
       <div class="trend-actions">
         <button class="btn btn-primary" id="trend-load">Load Trends</button>
         <button class="btn btn-secondary" id="trend-last">Last 24 Hours</button>
-      </div>
-      <div class="range-presets">
-        <button class="btn btn-secondary" data-range="1D">1D</button>
-        <button class="btn btn-secondary" data-range="1W">1W</button>
-        <button class="btn btn-secondary" data-range="1M">1M</button>
-        <button class="btn btn-secondary" data-range="3M">3M</button>
-        <button class="btn btn-secondary" data-range="1Y">1Y</button>
       </div>
 
       <!-- User Date Selection Notice -->
@@ -318,32 +311,53 @@
             label: label,
             data: [],
             borderColor: color,
-            backgroundColor: color + '22',
-            borderWidth: 2.5,
-            tension: 0.35,
+            backgroundColor: color + '10',
+            borderWidth: 1.8,
+            tension: 0.25,
             pointRadius: 0,
-            pointHoverRadius: 3,
-            fill: true
+            pointHoverRadius: 4,
+            fill: false
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          animation: { duration: 500 },
+          animation: { duration: 400 },
           interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { display: false },
-            tooltip: { mode: 'index', intersect: false }
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              callbacks: {
+                label: function(context) {
+                  const val = context.parsed.y;
+                  if (val === null || val === undefined) return '';
+                  return `${label}: ${val.toFixed(2)}`;
+                }
+              }
+            }
           },
           scales: {
             x: {
-              ticks: { maxTicksLimit: 8, color: '#94a3b8' },
+              ticks: {
+                maxTicksLimit: 6,
+                maxRotation: 0,
+                minRotation: 0,
+                autoSkip: true,
+                color: '#94a3b8',
+                font: { size: 10, weight: '600' }
+              },
               grid: { display: false }
             },
             y: {
               beginAtZero: false,
-              ticks: { maxTicksLimit: 6, color: '#94a3b8' },
-              grid: { color: 'rgba(148, 163, 184, 0.15)' }
+              ticks: {
+                maxTicksLimit: 5,
+                color: '#94a3b8',
+                font: { size: 10, weight: '600' }
+              },
+              grid: { color: 'rgba(148, 163, 184, 0.12)' }
             }
           }
         }
@@ -425,6 +439,104 @@
       return date;
     }
 
+    // Downsamples high-frequency rows into clean display buckets (averaging AC noise/jitter)
+    function downsampleRows(rows, maxPoints = 90) {
+      if (rows.length <= maxPoints) return rows;
+      const bucketSize = rows.length / maxPoints;
+      const downsampled = [];
+      const keys = [
+        'ENERGY', 'POWER_FACTOR', 'FREQUENCY',
+        'VR', 'VY', 'VB', 'RY', 'YB', 'BR', 'IR', 'IY', 'IB'
+      ];
+
+      for (let i = 0; i < maxPoints; i++) {
+        const startIdx = Math.floor(i * bucketSize);
+        const endIdx = Math.min(rows.length, Math.floor((i + 1) * bucketSize));
+        const slice = rows.slice(startIdx, endIdx);
+        if (!slice.length) continue;
+
+        const midRow = slice[Math.floor(slice.length / 2)];
+        const agg = { TIMESTAMP: midRow.TIMESTAMP, SHIFT: midRow.SHIFT };
+
+        keys.forEach(k => {
+          let sum = 0;
+          let count = 0;
+          let lastVal = null;
+          for (let j = 0; j < slice.length; j++) {
+            const v = toNum(slice[j][k]);
+            if (v !== null && isFinite(v)) {
+              sum += v;
+              count++;
+              lastVal = v;
+            }
+          }
+          if (k === 'ENERGY') {
+            agg[k] = lastVal;
+          } else {
+            agg[k] = count > 0 ? (sum / count) : null;
+          }
+        });
+        downsampled.push(agg);
+      }
+      return downsampled;
+    }
+
+    // Moving average filter to eliminate raw high-frequency sensor chatter
+    function applyMovingAverage(series, windowSize = 3) {
+      if (series.length <= windowSize) return series;
+      return series.map((val, idx, arr) => {
+        if (val === null || val === undefined) return null;
+        const half = Math.floor(windowSize / 2);
+        const start = Math.max(0, idx - half);
+        const end = Math.min(arr.length, idx + half + 1);
+        const slice = arr.slice(start, end).filter(v => v !== null && isFinite(v));
+        if (!slice.length) return val;
+        return Math.round((slice.reduce((a, b) => a + b, 0) / slice.length) * 100) / 100;
+      });
+    }
+
+    // Smart industrial SCADA scale bounds anchored to nominal operating baselines
+    function getSmartScaleBounds(key, cleanValues) {
+      if (!cleanValues || !cleanValues.length) return { min: null, max: null };
+      const minVal = Math.min(...cleanValues);
+      const maxVal = Math.max(...cleanValues);
+
+      // Phase-to-Neutral Voltages (RN, YN, BN) -> Nominal 230V standard
+      if (['VR', 'VY', 'VB'].includes(key)) {
+        const low = Math.min(215, Math.floor(minVal - 5));
+        const high = Math.max(245, Math.ceil(maxVal + 5));
+        return { min: low, max: high };
+      }
+
+      // Phase-to-Phase Voltages (RY, YB, BR) -> Nominal 415V standard
+      if (['RY', 'YB', 'BR'].includes(key)) {
+        const low = Math.min(385, Math.floor(minVal - 10));
+        const high = Math.max(435, Math.ceil(maxVal + 10));
+        return { min: low, max: high };
+      }
+
+      // Grid Frequency -> Nominal 50 Hz standard
+      if (key === 'FREQUENCY') {
+        const low = Math.min(48.5, Math.floor((minVal - 0.5) * 10) / 10);
+        const high = Math.max(51.5, Math.ceil((maxVal + 0.5) * 10) / 10);
+        return { min: low, max: high };
+      }
+
+      // Power Factor -> 0.70 to 1.02
+      if (key === 'POWER_FACTOR') {
+        return { min: Math.min(0.7, Math.floor((minVal - 0.05) * 10) / 10), max: 1.02 };
+      }
+
+      // Currents (IR, IY, IB) -> 0 to dynamic peak
+      if (['IR', 'IY', 'IB'].includes(key)) {
+        return { min: 0, max: Math.max(10, Math.ceil(maxVal * 1.15)) };
+      }
+
+      // Energy or default
+      const span = Math.max(1, maxVal - minVal);
+      return { min: Math.floor(minVal - span * 0.15), max: Math.ceil(maxVal + span * 0.15) };
+    }
+
     function bucketRows(rows, rangeMode) {
       if (!rows.length) return { labels: [], valuesByKey: {} };
       const buckets = new Map();
@@ -490,6 +602,13 @@
 
     function updateCharts(rows, rangeMode, startDate, endDate, animate = true) {
       const mode = rangeMode || 'day';
+      let displayRows = rows;
+
+      // When displaying high-density raw telemetry, downsample to ~90 smooth representative points
+      if (mode === 'raw' && rows.length > 90) {
+        displayRows = downsampleRows(rows, 90);
+      }
+
       let labels;
       let seriesMap = null;
 
@@ -498,58 +617,74 @@
         labels = bucketed.labels; // Keep original keys for lookup
         seriesMap = bucketed.valuesByKey;
       } else {
-        labels = rows.map(r => r.TIMESTAMP || '');
+        labels = displayRows.map(r => r.TIMESTAMP || '');
       }
 
-      // Generate pretty display labels for the X-axis
-      const isMultiDay = startDate && endDate && (Math.abs(new Date(endDate) - new Date(startDate)) > 86400000);
+      // Generate pretty display labels for the X-axis (clean 24h format and date crossing detection)
+      const hasDateCrossing = displayRows.some((r, i) => {
+        if (i === 0) return false;
+        return (r.TIMESTAMP || '').substring(0, 10) !== (displayRows[0].TIMESTAMP || '').substring(0, 10);
+      });
+
+      const pad2 = (n) => String(n).padStart(2, '0');
       const displayLabels = labels.map(l => {
         const d = parseTimestamp(l);
         if (!d || isNaN(d)) return l;
+        const hh = pad2(d.getHours());
+        const mm = pad2(d.getMinutes());
+        const timeStr = `${hh}:${mm}`;
+
         if (mode === 'raw') {
-          return isMultiDay 
-            ? `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`
-            : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          if (hasDateCrossing) {
+            const dd = pad2(d.getDate());
+            const mo = pad2(d.getMonth() + 1);
+            return `${dd}/${mo} ${timeStr}`;
+          }
+          return timeStr;
         }
-        if (mode === 'hour') return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit' }) + ':00';
-        if (mode === 'day') return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        if (mode === 'hour') {
+          const dd = pad2(d.getDate());
+          const mo = pad2(d.getMonth() + 1);
+          return `${dd}/${mo} ${timeStr}`;
+        }
+        if (mode === 'day') return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
         return d.toLocaleDateString([], { month: 'short', year: 'numeric' });
       });
 
       charts.forEach((c) => {
-        let series;
+        let rawSeries;
         if (seriesMap) {
-          series = labels.map(label => {
+          rawSeries = labels.map(label => {
             const entry = seriesMap[label] || {};
             return entry[c.key] ?? null;
           });
         } else {
-          series = rows.map(r => toNum(r[c.key]));
+          rawSeries = displayRows.map(r => toNum(r[c.key]));
         }
-        const clean = series.filter(v => isFinite(v));
-        let yMin = null;
-        let yMax = null;
-        if (clean.length) {
-          const minVal = Math.min(...clean);
-          const maxVal = Math.max(...clean);
-          const span = Math.max(1, maxVal - minVal);
-          const pad = span * 0.12;
-          yMin = minVal - pad;
-          yMax = maxVal + pad;
-        }
+
+        // Apply moving average smoothing on raw electrical readings (except cumulative energy)
+        const series = (mode === 'raw' && c.key !== 'ENERGY')
+          ? applyMovingAverage(rawSeries, 3)
+          : rawSeries;
+
+        const clean = series.filter(v => v !== null && isFinite(v));
+        const bounds = getSmartScaleBounds(c.key, clean);
+
         c.chart.data.labels = displayLabels;
         c.chart.data.datasets[0].data = series;
         c.chart.data.datasets[0].pointRadius = series.length <= 1 ? 4 : 0;
         c.chart.data.datasets[0].pointHoverRadius = series.length <= 1 ? 6 : 3;
-        if (yMin !== null && yMax !== null) {
-          c.chart.options.scales.y.suggestedMin = yMin;
-          c.chart.options.scales.y.suggestedMax = yMax;
+
+        if (bounds.min !== null && bounds.max !== null) {
+          c.chart.options.scales.y.suggestedMin = bounds.min;
+          c.chart.options.scales.y.suggestedMax = bounds.max;
         }
+
         c.chart.update(animate ? undefined : 'none');
 
         const statEl = document.getElementById(c.stat);
-        if (statEl && series.length) {
-          const latest = series[series.length - 1];
+        if (statEl && rawSeries.length) {
+          const latest = rawSeries[rawSeries.length - 1];
           statEl.innerText = formatStat(latest);
         }
       });
@@ -558,14 +693,11 @@
     function updateChartsFromLiveData() {
       charts.forEach((c) => {
         const series = c.chart.data.datasets[0].data;
-        const clean = series.filter(v => isFinite(v));
-        if (clean.length) {
-          const minVal = Math.min(...clean);
-          const maxVal = Math.max(...clean);
-          const span = Math.max(1, maxVal - minVal);
-          const pad = span * 0.12;
-          c.chart.options.scales.y.suggestedMin = minVal - pad;
-          c.chart.options.scales.y.suggestedMax = maxVal + pad;
+        const clean = series.filter(v => v !== null && isFinite(v));
+        const bounds = getSmartScaleBounds(c.key, clean);
+        if (bounds.min !== null && bounds.max !== null) {
+          c.chart.options.scales.y.suggestedMin = bounds.min;
+          c.chart.options.scales.y.suggestedMax = bounds.max;
         }
         c.chart.update('none');
 
@@ -576,7 +708,6 @@
         }
       });
     }
-
     function appendLatestRow(row) {
       if (!row || !row.TIMESTAMP) return;
       const selectedShift = document.getElementById('trend-shift').value;
@@ -614,27 +745,27 @@
       isLoading = true;
       trendStatus.innerText = 'Loading trend data...';
       const shift = document.getElementById('trend-shift').value;
-      const start = document.getElementById('trend-start').value;
-      const end = document.getElementById('trend-end').value;
+      let startDate = document.getElementById('trend-start').value;
+      let endDate = document.getElementById('trend-end').value;
 
-      let startDate = start;
-      let endDate = end;
       if (rangeMode === 'last24') {
         const now = new Date();
         const yesterday = new Date(now);
         yesterday.setDate(now.getDate() - 1);
         startDate = toLocalDateInput(yesterday);
         endDate = toLocalDateInput(now);
-      }
-
-      if (!startDate || !endDate) {
-        const fallbackStart = new Date();
-        fallbackStart.setDate(fallbackStart.getDate() - 1);
-        startDate = toLocalDateInput(fallbackStart);
-        endDate = toLocalDateInput(new Date());
         document.getElementById('trend-start').value = startDate;
         document.getElementById('trend-end').value = endDate;
       }
+
+      if (!startDate || !endDate) {
+        startDate = getProdDate();
+        endDate = window.getNextProductionDayString ? window.getNextProductionDayString() : startDate;
+        document.getElementById('trend-start').value = startDate;
+        document.getElementById('trend-end').value = endDate;
+      }
+
+      syncTrendsNotice();
 
       const limit = 10000;
       const params = new URLSearchParams({
@@ -703,27 +834,6 @@
     document.getElementById('trend-load').addEventListener('click', () => loadTrends('range'));
     document.getElementById('trend-last').addEventListener('click', () => loadTrends('last24'));
 
-    function applyPreset(range) {
-      const end = new Date();
-      const start = new Date(end);
-      if (range === '1D') start.setDate(end.getDate() - 1);
-      if (range === '1W') start.setDate(end.getDate() - 7);
-      if (range === '1M') start.setMonth(end.getMonth() - 1);
-      if (range === '3M') start.setMonth(end.getMonth() - 3);
-      if (range === '1Y') start.setFullYear(end.getFullYear() - 1);
-      document.getElementById('trend-start').value = toLocalDateInput(start);
-      document.getElementById('trend-end').value = toLocalDateInput(end);
-      suppressAnimations = true;
-      if (trendStream) {
-        trendStream.close();
-        trendStream = null;
-      }
-      loadTrends('range');
-    }
-
-    document.querySelectorAll('.range-presets [data-range]').forEach((btn) => {
-      btn.addEventListener('click', () => applyPreset(btn.dataset.range));
-    });
 
     const getProdDate = (d) => window.getProductionDayString ? window.getProductionDayString(d) : (() => {
       const dt = d ? new Date(d) : new Date();

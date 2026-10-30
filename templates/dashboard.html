@@ -1097,16 +1097,23 @@
       if (!ctx) return;
 
       const dataPoints = timeline || [];
-      const isMultiDay = dataPoints.some(p => {
-        const first = dataPoints[0] ? (dataPoints[0].timestamp || '').substring(0, 10) : '';
-        return p.timestamp && p.timestamp.substring(0, 10) !== first;
-      });
+      const startVal = document.getElementById('start') ? document.getElementById('start').value : '';
+      const endVal = document.getElementById('end') ? document.getElementById('end').value : '';
+
+      // A single production day spans from start date to start date OR start date to next day (<= 1 day difference)
+      let isSingleDay = true;
+      if (startVal && endVal) {
+        const sTime = new Date(startVal).getTime();
+        const eTime = new Date(endVal).getTime();
+        const diffDays = Math.round((eTime - sTime) / (1000 * 60 * 60 * 24));
+        if (diffDays > 1) isSingleDay = false;
+      }
 
       let labels = [];
       let diffValues = [];
 
-      // Production Day hours: 06:30, 07:30, 08:30, 09:30, 10:30, 11:30 ... 06:30
-      if (!isMultiDay) {
+      if (isSingleDay) {
+        // Standard 24 Production Hours Timeline: 06:30 AM to 06:30 AM Next Day
         const slots = [
           '06:30', '07:30', '08:30', '09:30', '10:30', '11:30',
           '12:30', '13:30', '14:30', '15:30', '16:30', '17:30',
@@ -1130,26 +1137,26 @@
           }
         });
 
-        // Determine current wall clock slot to never plot future hours as 0
-        const now = new Date();
-        let nowMinsFrom630 = (now.getHours() * 60 + now.getMinutes()) - (6 * 60 + 30);
-        if (nowMinsFrom630 < 0) nowMinsFrom630 += 24 * 60;
-        const currentClockSlot = Math.min(slots.length - 1, Math.floor(nowMinsFrom630 / 60));
-
         const curProdDay = window.getProductionDayString ? window.getProductionDayString() : '';
-        const selectedStart = document.getElementById('start') ? document.getElementById('start').value : '';
-        const isToday = (!selectedStart || selectedStart === curProdDay);
+        const isToday = (!startVal || startVal === curProdDay);
 
-        // Future slots after current time (or future slots after latest recorded data) stay null so graph stops cleanly
-        const maxSlotToDisplay = isToday ? currentClockSlot : (latestDataSlot >= 0 ? latestDataSlot : slots.length - 1);
+        let maxSlotToDisplay = slots.length - 1;
+        if (isToday) {
+          // If viewing today, limit up to the current hour so future hours don't drop to 0
+          const now = new Date();
+          let nowMins = (now.getHours() * 60 + now.getMinutes()) - (6 * 60 + 30);
+          if (nowMins < 0) nowMins += 24 * 60;
+          maxSlotToDisplay = Math.min(slots.length - 1, Math.floor(nowMins / 60));
+        }
 
         diffValues = slots.map((_, idx) => {
           if (idx <= maxSlotToDisplay) {
             return Math.round((slotTotals[idx] || 0) * 100) / 100;
           }
-          return null; // Future hours are null (no flatline or zero dots)
+          return null; // Future hours remain null
         });
       } else {
+        // Multi-day custom range (> 1 day)
         labels = dataPoints.map(p => {
           const ts = p.timestamp || '';
           if (ts.length >= 16) {
@@ -1197,12 +1204,14 @@
             legend: { display: false },
             tooltip: {
               callbacks: {
-                title: (items) => {
+                title: function(items) {
                   if (!items.length) return '';
-                  const label = labels[items[0].dataIndex] || '';
-                  return `Time Window: ${label}`;
+                  return `Time Window: ${items[0].label || ''}`;
                 },
-                label: (ctx) => `${ctx.parsed.y} kWh consumed`
+                label: function(ctx) {
+                  if (ctx.parsed.y === null || ctx.parsed.y === undefined) return '';
+                  return `${ctx.parsed.y} kWh consumed`;
+                }
               }
             }
           },
@@ -1215,13 +1224,13 @@
                 maxTicksLimit: window.innerWidth < 600 ? 7 : 13,
                 maxRotation: 0,
                 autoSkip: true,
-                callback: function(val, index) {
-                  return labels[index];
+                callback: function(val) {
+                  return this.getLabelForValue(val);
                 }
               },
               title: {
                 display: true,
-                text: 'Production Hours Timeline (06:30 AM to 06:30 AM Next Day)',
+                text: isSingleDay ? 'Production Hours Timeline (06:30 AM to 06:30 AM Next Day)' : 'Timeline Across Selected Dates',
                 color: '#64748b',
                 font: { size: 11, weight: '700' }
               }
@@ -1312,6 +1321,11 @@
           const tB = document.getElementById('tfoot-b'); if (tB) tB.innerText = bStr;
           const tC = document.getElementById('tfoot-c'); if (tC) tC.innerText = cStr;
 
+          const periodSub = document.getElementById('shift-period-sub');
+          if (periodSub) {
+            periodSub.innerText = (shift && shift !== 'ALL') ? `Shift ${shift} Filtered Accumulation` : 'Selected Period Accumulation';
+          }
+
 
 
           // Update Charts
@@ -1397,6 +1411,7 @@
 
     document.getElementById('btn-load').addEventListener('click', () => loadData('range'));
     document.getElementById('btn-all').addEventListener('click', () => loadData('all'));
+    document.getElementById('shift').addEventListener('change', () => loadData('range'));
 
     function handleStreamRow(row) {
       const normalized = normalizeRow(row);

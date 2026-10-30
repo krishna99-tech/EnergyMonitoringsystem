@@ -979,8 +979,26 @@ def api_energy_shifts():
     daily_list = [daily_shifts[k] for k in sorted(daily_shifts.keys())]
 
     reported_total = total_cons
+    reported_a = shift_cons["A"]
+    reported_b = shift_cons["B"]
+    reported_c = shift_cons["C"]
+
     if shift_filter in ["A", "B", "C"]:
         reported_total = shift_cons[shift_filter]
+        reported_a = shift_cons["A"] if shift_filter == "A" else 0.0
+        reported_b = shift_cons["B"] if shift_filter == "B" else 0.0
+        reported_c = shift_cons["C"] if shift_filter == "C" else 0.0
+        timeline = [p for p in timeline if p.get("shift") == shift_filter]
+        daily_list = [
+            {
+                "date": d["date"],
+                "A": d["A"] if shift_filter == "A" else 0.0,
+                "B": d["B"] if shift_filter == "B" else 0.0,
+                "C": d["C"] if shift_filter == "C" else 0.0,
+                "total": d.get(shift_filter, 0.0)
+            }
+            for d in daily_list
+        ]
 
     if len(timeline) > 300:
         step = max(1, len(timeline) // 300)
@@ -997,10 +1015,10 @@ def api_energy_shifts():
         "end_date": end,
         "filter_shift": shift_filter,
         "total_energy": round(reported_total, 2),
-        "shift_a": round(shift_cons["A"], 2),
-        "shift_b": round(shift_cons["B"], 2),
-        "shift_c": round(shift_cons["C"], 2),
-        "count": len(sorted_data),
+        "shift_a": round(reported_a, 2),
+        "shift_b": round(reported_b, 2),
+        "shift_c": round(reported_c, 2),
+        "count": len(timeline) if shift_filter in ["A", "B", "C"] else len(sorted_data),
         "daily_breakdown": daily_list,
         "timeline": timeline,
         "latest_reading": latest_reading,
