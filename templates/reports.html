@@ -432,9 +432,6 @@
         <span>Daily Shift-Wise Energy Breakdown</span>
       </div>
       <div class="export-btn-group">
-        <button class="btn btn-secondary" id="btn-export-csv">
-          <i class="fa-solid fa-file-csv"></i> Export CSV
-        </button>
         <button class="btn btn-secondary" id="btn-export-excel">
           <i class="fa-solid fa-file-excel"></i> Export Excel
         </button>
@@ -820,10 +817,6 @@
       alert('Export failed: ' + e);
     }
   }
-
-  document.getElementById('btn-export-csv').addEventListener('click', () => {
-    triggerExport('/api/export/csv', 'shift_energy_report.csv');
-  });
 
   document.getElementById('btn-export-excel').addEventListener('click', () => {
     triggerExport('/api/export/excel', 'shift_energy_report.xlsx');

@@ -1127,10 +1127,10 @@
       <span class="nav-badge" id="alert-badge" style="display:none;">!</span>
     </a>
 
-    <a class="nav-btn {% if request.path == '/gauges' %}active{% endif %}"
+ <!--   <a class="nav-btn {% if request.path == '/gauges' %}active{% endif %}"
        href="/gauges" {% if request.path == '/gauges' %}aria-current="page"{% endif %}>
       <i class="fa-solid fa-circle-half-stroke"></i> Gauges View
-    </a>
+    </a> -->
 
     <a class="nav-btn {% if request.path == '/trends' %}active{% endif %}"
        href="/trends" {% if request.path == '/trends' %}aria-current="page"{% endif %}>
@@ -1144,7 +1144,7 @@
       <i class="fa-solid fa-clipboard-list"></i> Reports
     </a>
 
-    <a class="nav-btn {% if request.path == '/alerts' %}active{% endif %}"
+   <!-- <a class="nav-btn {% if request.path == '/alerts' %}active{% endif %}"
        href="/alerts" {% if request.path == '/alerts' %}aria-current="page"{% endif %}>
       <i class="fa-solid fa-bell"></i> Alerts
     </a>
@@ -1153,7 +1153,7 @@
     <a class="nav-btn {% if request.path == '/settings' %}active{% endif %}"
        href="/settings" {% if request.path == '/settings' %}aria-current="page"{% endif %}>
       <i class="fa-solid fa-sliders"></i> Settings
-    </a>
+    </a> -->
 
 
     <div class="sidebar-footer">
@@ -1187,10 +1187,10 @@
     <div class="cmd-results" id="cmd-results">
       <div class="cmd-item" data-href="/"><i class="fa-solid fa-house"></i> Home Devices</div>
       <div class="cmd-item" data-href="/dashboard"><i class="fa-solid fa-gauge-high"></i> Dashboard</div>
-      <div class="cmd-item" data-href="/gauges"><i class="fa-solid fa-circle-half-stroke"></i> Gauges View</div>
+    <!--  <div class="cmd-item" data-href="/gauges"><i class="fa-solid fa-circle-half-stroke"></i> Gauges View</div> -->
       <div class="cmd-item" data-href="/trends"><i class="fa-solid fa-chart-line"></i> Trend Charts</div>
-      <div class="cmd-item" data-href="/reports"><i class="fa-solid fa-file-chart-column"></i> Reports</div>
-      <div class="cmd-item" data-href="/settings"><i class="fa-solid fa-sliders"></i> Settings</div>
+    <!--  <div class="cmd-item" data-href="/reports"><i class="fa-solid fa-file-chart-column"></i> Reports</div>
+      <div class="cmd-item" data-href="/settings"><i class="fa-solid fa-sliders"></i> Settings</div> -->
     </div>
     <div class="cmd-hint">
       <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>

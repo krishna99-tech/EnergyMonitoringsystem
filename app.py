@@ -339,6 +339,7 @@ init_db()
 
 # ================= ROUTES =================
 @app.route("/")
+@app.route("/devices")
 def index():
     return render_template("devices.html")
 
