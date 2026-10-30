@@ -1115,6 +1115,7 @@
         ];
         labels = slots;
         const slotTotals = new Array(slots.length).fill(0);
+        let latestDataSlot = -1;
 
         dataPoints.forEach(p => {
           const ts = p.timestamp || '';
@@ -1125,10 +1126,29 @@
             if (minsFrom630 < 0) minsFrom630 += 24 * 60;
             const slotIdx = Math.min(slots.length - 1, Math.floor(minsFrom630 / 60));
             slotTotals[slotIdx] += (p.diff || 0);
+            if (slotIdx > latestDataSlot) latestDataSlot = slotIdx;
           }
         });
 
-        diffValues = slotTotals.map(v => Math.round(v * 100) / 100);
+        // Determine current wall clock slot to never plot future hours as 0
+        const now = new Date();
+        let nowMinsFrom630 = (now.getHours() * 60 + now.getMinutes()) - (6 * 60 + 30);
+        if (nowMinsFrom630 < 0) nowMinsFrom630 += 24 * 60;
+        const currentClockSlot = Math.min(slots.length - 1, Math.floor(nowMinsFrom630 / 60));
+
+        const curProdDay = window.getProductionDayString ? window.getProductionDayString() : '';
+        const selectedStart = document.getElementById('start') ? document.getElementById('start').value : '';
+        const isToday = (!selectedStart || selectedStart === curProdDay);
+
+        // Future slots after current time (or future slots after latest recorded data) stay null so graph stops cleanly
+        const maxSlotToDisplay = isToday ? currentClockSlot : (latestDataSlot >= 0 ? latestDataSlot : slots.length - 1);
+
+        diffValues = slots.map((_, idx) => {
+          if (idx <= maxSlotToDisplay) {
+            return Math.round((slotTotals[idx] || 0) * 100) / 100;
+          }
+          return null; // Future hours are null (no flatline or zero dots)
+        });
       } else {
         labels = dataPoints.map(p => {
           const ts = p.timestamp || '';
@@ -1162,6 +1182,7 @@
             borderWidth: 2.5,
             fill: true,
             tension: 0.3,
+            spanGaps: false,
             pointRadius: 4,
             pointBackgroundColor: '#34d399',
             pointBorderColor: '#111827',
