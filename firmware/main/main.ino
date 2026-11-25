@@ -1,5 +1,5 @@
 // Example code for ESP32 Modbus RTU client reading MFM384 registers and sending data via UDP
-// Features: Modbus RTU reading, UDP Telemetry, Heartbeat monitoring, and Status LED Pulse
+// Features: Modbus RTU reading, UDP Telemetry, and Heartbeat monitoring
 // Integrated with ELFORGE Energy Monitoring System
 
 #include <WiFi.h>
@@ -7,8 +7,8 @@
 #include <ModbusRTU.h>
 
 /* ================= WIFI CONFIG ================= */
-const char* WIFI_SSID = "Admin_IO";
-const char* WIFI_PASS = "Mcd@2026";
+const char* WIFI_SSID = "ELFORGE_IOT"; //ELFORGE_IOT
+const char* WIFI_PASS = "Iot@2026"; //Iot@2026
 
 IPAddress localIP(192, 168, 1, 83);
 IPAddress gateway(192, 168, 1, 1);
@@ -27,17 +27,15 @@ const uint16_t UDP_PORT = 50004; // Matches app.py UDP_PORT
 #define DE_RE    4
 #define SLAVE_ID 1
 
-/* ================= HEARTBEAT & STATUS LED ================= */
-#define LED_HEARTBEAT       2        // Onboard LED (GPIO 2 on most ESP32 dev boards)
-#define HEARTBEAT_INTERVAL  10000    // Send UDP heartbeat ping every 10 seconds
-#define LED_BLINK_NORMAL    1000     // 1s blink when WiFi is connected
-#define LED_BLINK_FAST      200      // 200ms rapid blink when WiFi is disconnected
+/* ================= TIMING & HEARTBEAT CONFIG ================= */
+#define MODBUS_POLL_INTERVAL  500       // 500ms delay between register reads
+#define TELEMETRY_INTERVAL_MS 300000UL  // 5 Minutes (5 * 60 * 1000 = 300,000 ms)
+#define HEARTBEAT_INTERVAL    10000     // 10s keepalive ping (keeps dashboard status ONLINE)
 
 unsigned long lastHeartbeat = 0;
-unsigned long lastLedBlink  = 0;
-bool ledState = false;
 uint32_t heartbeatSeq = 0;
 bool modbusHealthy = false;
+bool firstSendDone = false;
 
 /* ================= MFM384 REGISTERS ================= */
 #define REG_VR       0 
@@ -147,8 +145,7 @@ void sendData() {
   char json[512];
 
   snprintf(json, sizeof(json),
-    "{\"device_ip\":\"%d\","
-    "\"slave_id\":%d,"
+    "{\"slave_id\":%d,"
     "\"energy\":%.2f,"
     "\"power_factor\":%.3f,"
     "\"frequency\":%.2f,"
@@ -161,7 +158,6 @@ void sendData() {
     "\"ir\":%.2f,"
     "\"iy\":%.2f,"
     "\"ib\":%.2f}",
-    SLAVE_ID,
     SLAVE_ID,
     energy,
     power_factor,
@@ -200,13 +196,11 @@ void sendHeartbeat() {
 
   snprintf(hbJson, sizeof(hbJson),
     "{\"type\":\"heartbeat\","
-    "\"device_ip\":\"%d\","
     "\"slave_id\":%d,"
     "\"seq\":%lu,"
     "\"uptime_sec\":%lu,"
     "\"rssi\":%d,"
     "\"modbus_ok\":%s}",
-    SLAVE_ID,
     SLAVE_ID,
     heartbeatSeq,
     millis() / 1000,
@@ -226,18 +220,6 @@ void sendHeartbeat() {
   Serial.println(modbusHealthy ? "OK" : "TIMEOUT");
 }
 
-/* ================= VISUAL LED HEARTBEAT ================= */
-void updateLedHeartbeat() {
-  unsigned long now = millis();
-  unsigned long blinkInterval = (WiFi.status() == WL_CONNECTED) ? LED_BLINK_NORMAL : LED_BLINK_FAST;
-
-  if (now - lastLedBlink >= blinkInterval) {
-    lastLedBlink = now;
-    ledState = !ledState;
-    digitalWrite(LED_HEARTBEAT, ledState);
-  }
-}
-
 /* ================= WIFI SETUP ================= */
 void setupWiFi() {
 
@@ -254,10 +236,8 @@ void setupWiFi() {
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    digitalWrite(LED_HEARTBEAT, !digitalRead(LED_HEARTBEAT)); // Toggle LED while waiting
   }
 
-  digitalWrite(LED_HEARTBEAT, HIGH);
   Serial.println("\n✅ WiFi Connected");
   Serial.print("ESP32 IP: ");
   Serial.println(WiFi.localIP());
@@ -284,9 +264,6 @@ void setup() {
 
   Serial.println("\n🚀 ESP32 MFM384 Industrial Modbus Client with Heartbeat");
 
-  pinMode(LED_HEARTBEAT, OUTPUT);
-  digitalWrite(LED_HEARTBEAT, LOW);
-
   pinMode(DE_RE, OUTPUT);
   digitalWrite(DE_RE, LOW);
 
@@ -305,10 +282,9 @@ void loop() {
 
   mb.task();
   checkWiFi();
-  updateLedHeartbeat(); // Keep visual hardware pulse running
 
   /* ---- Modbus Polling ---- */
-  if (millis() - lastRead > 300 && !mb.slave()) {
+  if (millis() - lastRead > MODBUS_POLL_INTERVAL && !mb.slave()) {
 
     lastRead = millis();
 
@@ -328,9 +304,10 @@ void loop() {
     }
   }
 
-  /* ---- Send Telemetry after complete cycle ---- */
-  if (cycleComplete && millis() - lastSend > 5000) {
+  /* ---- Send Telemetry after complete cycle (Every 5 Minutes) ---- */
+  if (cycleComplete && (!firstSendDone || (millis() - lastSend >= TELEMETRY_INTERVAL_MS))) {
     lastSend = millis();
+    firstSendDone = true;
     cycleComplete = false;
     sendData();
   }

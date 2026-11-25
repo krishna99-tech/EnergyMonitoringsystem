@@ -15,7 +15,7 @@ import os
 app = Flask(__name__)
 DB_PATH = "energy.db"
 UDP_PORT = 50004
-webport = 5002
+webport = 5001
 UDP_DEBUG = True
 
 # ================= SAFE FLOAT CONVERTER =================
